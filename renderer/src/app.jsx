@@ -3,6 +3,7 @@ import { Chess } from "chess.js";
 import Board from "./components/Board.jsx";
 import BotSelector from "./components/BotSelector.jsx";
 import PlayVsBot from "./components/PlayVsBot.jsx";
+import ZoneMode from "./components/ZoneMode.jsx";
 import { personalities } from "./engine/personalities.js";
 import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "./data/famousGames.js";
 import { supabase, auth, db } from "./supabase.js";
@@ -71,6 +72,9 @@ export default function App() {
   // Grandmaster state
   const [selectedBotId, setSelectedBotId] = useState("carlsen");
   const [grandmasterView, setGrandmasterView] = useState("select");
+
+  // Zone Mode state
+  const [showZoneMode, setShowZoneMode] = useState(false);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTH MANAGEMENT
@@ -485,6 +489,10 @@ export default function App() {
                 style={{ padding: "16px 32px", borderRadius: 10, border: "none", background: mode === "grandmaster" ? "#4CAF50" : "transparent", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 24 }}>🎮</span><span>Play vs AI</span>
               </button>
+              <button onClick={() => setShowZoneMode(true)}
+                style={{ padding: "16px 32px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 24 }}>🎯</span><span>Training Zone</span>
+              </button>
             </div>
             
             {/* Auth Button */}
@@ -717,6 +725,26 @@ export default function App() {
                           </a>
                         )}
                       </div>
+                      {/* Enter Zone Button */}
+                      <button onClick={() => setShowZoneMode(true)}
+                        style={{
+                          marginTop: 16,
+                          padding: "12px 20px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontWeight: 700,
+                          fontSize: 14,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          width: "100%",
+                          justifyContent: "center"
+                        }}>
+                        <span>🎯</span> Enter Zone Mode
+                      </button>
                     </div>
                     <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 8 }}>MOVES</div>
                     <div style={{ flex: 1, overflowY: "auto", background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: 14 }}>
@@ -857,6 +885,14 @@ export default function App() {
         <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
           <PlayVsBot profile={selectedBot} onBack={() => setGrandmasterView("select")} />
         </div>
+      )}
+
+      {/* ZONE MODE */}
+      {showZoneMode && (
+        <ZoneMode
+          initialGame={selectedGame}
+          onClose={() => setShowZoneMode(false)}
+        />
       )}
     </div>
   );
