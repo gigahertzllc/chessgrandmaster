@@ -1,14 +1,16 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.4.0
+ * Version: 1.5.0
  * Last Updated: January 16, 2026
  * 
- * v1.4.0 - Player Profiles with Wikipedia Images
- *   - Visual player cards with Wikipedia photos
- *   - Full player biographies, stats, and quotes
- *   - Real Fischer PGN file (827 games from pgnmentor.com)
- *   - Interactive player profile modal
+ * v1.5.0 - Admin Panel & Board Theme Fixes
+ *   - Admin panel for importing games and managing player profiles
+ *   - Upload custom player images
+ *   - Fixed board themes with better contrast (no dark-on-dark)
+ *   - 12 distinct board themes (wood, marble, tournament, etc.)
+ *   - Board theme selector in settings
  * 
+ * v1.4.0 - Player Profiles with Wikipedia Images
  * v1.3.0 - Player Info System
  * v1.2.0 - Masters Database
  * v1.1.0 - Layout fixes
@@ -22,16 +24,18 @@ import BotSelector from "./components/BotSelector.jsx";
 import PlayVsBot from "./components/PlayVsBot.jsx";
 import ZoneMode from "./components/ZoneMode.jsx";
 import PlayerProfile from "./components/PlayerProfile.jsx";
+import AdminPanel from "./components/AdminPanel.jsx";
 import { personalities } from "./engine/personalities.js";
 import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "./data/famousGames.js";
 import { supabase, auth, db } from "./supabase.js";
 import { parsePGN, MASTER_COLLECTIONS } from "./data/pgnParser.js";
 import { PLAYERS, getPlayer } from "./data/playerInfo.js";
+import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.5.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -118,7 +122,7 @@ export default function App() {
   
   // Theme state
   const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
-  const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "carrara_gold");
+  const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "classic_wood");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   
   // Auth state
@@ -134,6 +138,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("library");
   const [showSettings, setShowSettings] = useState(false);
   const [showZoneMode, setShowZoneMode] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   // Library state
   const [source, setSource] = useState("classics");
@@ -482,9 +487,9 @@ export default function App() {
                 <div style={{
                   position: "absolute", top: "100%", right: 0, marginTop: 8, background: theme.card,
                   border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, boxShadow: theme.shadowStrong,
-                  zIndex: 200, minWidth: 180,
+                  zIndex: 200, minWidth: 220,
                 }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>THEME</p>
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
                   {Object.values(THEMES).map(t => (
                     <button key={t.id} onClick={() => { changeTheme(t.id); setShowSettings(false); }}
                       style={{
@@ -497,6 +502,33 @@ export default function App() {
                       {t.name}
                     </button>
                   ))}
+                  
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12, marginTop: 16 }}>BOARD THEME</p>
+                  <select
+                    value={boardThemeId}
+                    onChange={(e) => { setBoardThemeId(e.target.value); localStorage.setItem("cm-board-theme", e.target.value); }}
+                    style={{
+                      width: "100%", padding: "10px 12px", borderRadius: 8, 
+                      border: `1px solid ${theme.border}`, background: theme.bg, color: theme.ink,
+                      fontSize: 13, cursor: "pointer", marginBottom: 8
+                    }}
+                  >
+                    {listBoardThemes().map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  
+                  <div style={{ borderTop: `1px solid ${theme.border}`, marginTop: 12, paddingTop: 12 }}>
+                    <button 
+                      onClick={() => { setShowAdminPanel(true); setShowSettings(false); }}
+                      style={{
+                        width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`,
+                        background: "transparent", color: theme.ink, cursor: "pointer", textAlign: "left", 
+                        fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 10
+                      }}>
+                      ⚙️ Admin Panel
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -847,6 +879,36 @@ export default function App() {
 
       {/* Zone Mode */}
       {showZoneMode && <ZoneMode initialGame={selectedGame} onClose={() => setShowZoneMode(false)} theme={theme} boardThemeId={boardThemeId} onBoardThemeChange={changeBoardTheme} />}
+
+      {/* Admin Panel Modal */}
+      {showAdminPanel && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0,0,0,0.85)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: 20,
+          backdropFilter: "blur(4px)"
+        }} onClick={() => setShowAdminPanel(false)}>
+          <div style={{
+            width: "100%",
+            maxWidth: 1200,
+            height: "90vh",
+            backgroundColor: theme.bg,
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: theme.shadowStrong
+          }} onClick={e => e.stopPropagation()}>
+            <AdminPanel 
+              theme={theme}
+              onClose={() => setShowAdminPanel(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Player Profile Modal */}
       {showPlayerProfile && (

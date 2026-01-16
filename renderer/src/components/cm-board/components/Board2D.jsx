@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useEffect } from "react";
 import "./board2d.css";
 import { allSquares, isDarkSquare } from "../utils/squares";
-import { getBoardTheme } from "../themes/boardThemes";
+import { getBoardTheme, getSquareBackground } from "../themes/boardThemes";
 import Piece2D from "./Piece2D";
 
 /**
- * Premium 2D board.
+ * Premium 2D board with marble/wood textures.
  * Parent owns chess engine state (e.g., chess.js).
  * Pass `fen` prop alongside `chess` to trigger re-renders when position changes.
  */
@@ -17,7 +17,7 @@ export default function Board2D({
   interactive = true,
   onMove,
   lastMove = null,
-  themeId = "carrara_gold",
+  themeId = "classic_wood",
   vignette = true,
   piece2DBaseUrl = "/pieces/classic/"
 }) {
@@ -82,7 +82,7 @@ export default function Board2D({
         width: size,
         height: size,
         background: theme.frame,
-        boxShadow: `inset 0 0 0 1px ${theme.accent}`,
+        boxShadow: `inset 0 0 0 2px ${theme.accent}, 0 8px 32px rgba(0,0,0,0.4)`,
         ["--accent"]: theme.accent
       }}
     >
@@ -93,6 +93,9 @@ export default function Board2D({
         const isLegal = legalMoves.includes(sq);
         const isLast = lastMove && (sq === lastMove.from || sq === lastMove.to);
         const isCheck = checkSquare === sq;
+
+        // Get background with texture pattern if available
+        const squareBg = getSquareBackground(theme, isDark);
 
         return (
           <div
@@ -106,7 +109,7 @@ export default function Board2D({
               (isCheck ? " check" : "")
             }
             style={{
-              background: isDark ? theme.dark : theme.light
+              background: squareBg
             }}
             onClick={() => handleSquareClick(sq)}
           >
