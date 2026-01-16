@@ -86,49 +86,16 @@ const fonts = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function App() {
-  // Theme - load from localStorage initially, sync with Supabase when logged in
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALL STATE DECLARATIONS FIRST
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // Theme state
   const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
   const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "carrara_gold");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
-  const theme = THEMES[themeId] || THEMES.dark;
   
-  // Save theme to Supabase when user is logged in
-  const savePrefsToSupabase = useCallback(async (userId, prefs) => {
-    if (!supabase || !userId) return;
-    try {
-      await db.savePreferences(userId, {
-        app_theme: prefs.appTheme || themeId,
-        board_theme: prefs.boardTheme || boardThemeId,
-        updated_at: new Date().toISOString()
-      });
-    } catch (e) { console.error("Failed to save preferences:", e); }
-  }, [themeId, boardThemeId]);
-
-  useEffect(() => {
-    localStorage.setItem("cm-theme", themeId);
-    document.body.style.background = theme.bg;
-    document.body.style.color = theme.ink;
-  }, [themeId, theme]);
-
-  // Change theme and save to Supabase if logged in
-  const changeTheme = useCallback((newThemeId) => {
-    setThemeId(newThemeId);
-    localStorage.setItem("cm-theme", newThemeId);
-    if (user) {
-      savePrefsToSupabase(user.id, { appTheme: newThemeId });
-    }
-  }, [user, savePrefsToSupabase]);
-
-  const changeBoardTheme = useCallback((newBoardThemeId) => {
-    setBoardThemeId(newBoardThemeId);
-    localStorage.setItem("cm-board-theme", newBoardThemeId);
-    if (user) {
-      savePrefsToSupabase(user.id, { boardTheme: newBoardThemeId });
-    }
-  }, [user, savePrefsToSupabase]);
-
-  const [activeTab, setActiveTab] = useState("library");
-  const [showSettings, setShowSettings] = useState(false);
+  // Auth state
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -136,6 +103,13 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState(null);
+  
+  // Navigation state
+  const [activeTab, setActiveTab] = useState("library");
+  const [showSettings, setShowSettings] = useState(false);
+  const [showZoneMode, setShowZoneMode] = useState(false);
+  
+  // Library state
   const [source, setSource] = useState("classics");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -150,38 +124,105 @@ export default function App() {
   const [libraryMoveIndex, setLibraryMoveIndex] = useState(0);
   const [libraryMoves, setLibraryMoves] = useState([]);
   const [libraryOrientation, setLibraryOrientation] = useState("w");
+  
+  // Import state
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [importedGames, setImportedGames] = useState([]);
   const [importLoading, setImportLoading] = useState(false);
+  
+  // Play state
   const [selectedBotId, setSelectedBotId] = useState("carlsen");
   const [grandmasterView, setGrandmasterView] = useState("select");
-  const [showZoneMode, setShowZoneMode] = useState(false);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DERIVED STATE & MEMOS
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const theme = THEMES[themeId] || THEMES.dark;
   const selectedBot = useMemo(() => personalities.find(p => p.id === selectedBotId), [selectedBotId]);
 
-  // Auth & Preferences
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HELPER FUNCTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const loadImportedGames = async (userId) => {
+    try {
+      const { data: gamesData, error } = await db.getImportedGames(userId);
+      if (error) throw error;
+      if (gamesData) {
+        setImportedGames(gamesData.map(g => ({
+          id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn
+        })));
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const loadPreferences = async (userId) => {
+    try {
+      const { data: prefs } = await db.getPreferences(userId);
+      if (prefs) {
+        if (prefs.app_theme && THEMES[prefs.app_theme]) {
+          setThemeId(prefs.app_theme);
+          localStorage.setItem("cm-theme", prefs.app_theme);
+        }
+        if (prefs.board_theme) {
+          setBoardThemeId(prefs.board_theme);
+          localStorage.setItem("cm-board-theme", prefs.board_theme);
+        }
+      }
+      setPrefsLoaded(true);
+    } catch (e) { console.error(e); }
+  };
+
+  const savePrefsToSupabase = async (userId, prefs) => {
+    if (!supabase || !userId) return;
+    try {
+      await db.savePreferences(userId, {
+        app_theme: prefs.appTheme || themeId,
+        board_theme: prefs.boardTheme || boardThemeId,
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) { console.error("Failed to save preferences:", e); }
+  };
+
+  const changeTheme = (newThemeId) => {
+    setThemeId(newThemeId);
+    localStorage.setItem("cm-theme", newThemeId);
+    if (user) {
+      savePrefsToSupabase(user.id, { appTheme: newThemeId });
+    }
+  };
+
+  const changeBoardTheme = (newBoardThemeId) => {
+    setBoardThemeId(newBoardThemeId);
+    localStorage.setItem("cm-board-theme", newBoardThemeId);
+    if (user) {
+      savePrefsToSupabase(user.id, { boardTheme: newBoardThemeId });
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EFFECTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Theme effect
+  useEffect(() => {
+    localStorage.setItem("cm-theme", themeId);
+    document.body.style.background = theme.bg;
+    document.body.style.color = theme.ink;
+  }, [themeId, theme]);
+
+  // Auth effect
   useEffect(() => {
     const checkUser = async () => {
       if (!supabase) { setAuthLoading(false); return; }
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-        if (user) {
-          loadImportedGames(user.id);
-          // Load preferences from Supabase
-          const { data: prefs } = await db.getPreferences(user.id);
-          if (prefs) {
-            if (prefs.app_theme && THEMES[prefs.app_theme]) {
-              setThemeId(prefs.app_theme);
-              localStorage.setItem("cm-theme", prefs.app_theme);
-            }
-            if (prefs.board_theme) {
-              setBoardThemeId(prefs.board_theme);
-              localStorage.setItem("cm-board-theme", prefs.board_theme);
-            }
-          }
-          setPrefsLoaded(true);
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setUser(currentUser);
+        if (currentUser) {
+          loadImportedGames(currentUser.id);
+          loadPreferences(currentUser.id);
         }
       } catch (e) { console.error(e); }
       setAuthLoading(false);
@@ -192,20 +233,8 @@ export default function App() {
         setUser(session?.user || null);
         if (session?.user) {
           loadImportedGames(session.user.id);
-          // Load preferences on login
           if (event === 'SIGNED_IN') {
-            const { data: prefs } = await db.getPreferences(session.user.id);
-            if (prefs) {
-              if (prefs.app_theme && THEMES[prefs.app_theme]) {
-                setThemeId(prefs.app_theme);
-                localStorage.setItem("cm-theme", prefs.app_theme);
-              }
-              if (prefs.board_theme) {
-                setBoardThemeId(prefs.board_theme);
-                localStorage.setItem("cm-board-theme", prefs.board_theme);
-              }
-            }
-            setPrefsLoaded(true);
+            loadPreferences(session.user.id);
           }
         } else {
           setImportedGames([]);
@@ -216,17 +245,9 @@ export default function App() {
     }
   }, []);
 
-  const loadImportedGames = async (userId) => {
-    try {
-      const { data: games, error } = await db.getImportedGames(userId);
-      if (error) throw error;
-      if (games) {
-        setImportedGames(games.map(g => ({
-          id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn
-        })));
-      }
-    } catch (e) { console.error(e); }
-  };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTH HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSignIn = async (e) => {
     e.preventDefault(); setAuthError(null);
