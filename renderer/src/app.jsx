@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import Board from "./components/Board.jsx";
 import BotSelector from "./components/BotSelector.jsx";
@@ -8,45 +8,134 @@ import { personalities } from "./engine/personalities.js";
 import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "./data/famousGames.js";
 import { supabase, auth, db } from "./supabase.js";
 
-/**
- * Chessmaster 2026 - Main Application
- */
+// ═══════════════════════════════════════════════════════════════════════════
+// DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
+// ═══════════════════════════════════════════════════════════════════════════
+
+const THEMES = {
+  light: {
+    id: "light", name: "Light",
+    bg: "#FAFAF8", bgAlt: "#F5F5F3",
+    card: "rgba(255, 255, 255, 0.95)", cardHover: "#fff",
+    ink: "#1a1a1a", inkMuted: "#666", inkFaint: "#999",
+    accent: "#1a1a1a", accentSoft: "rgba(26,26,26,0.08)",
+    success: "#2E7D32", error: "#C62828",
+    border: "rgba(0,0,0,0.08)", borderStrong: "rgba(0,0,0,0.15)",
+    shadow: "0 4px 24px rgba(0,0,0,0.06)", shadowStrong: "0 12px 48px rgba(0,0,0,0.12)",
+  },
+  dark: {
+    id: "dark", name: "Dark",
+    bg: "#141416", bgAlt: "#1c1c20",
+    card: "rgba(28,28,32,0.95)", cardHover: "rgba(36,36,42,1)",
+    ink: "#FAFAF8", inkMuted: "#a0a0a0", inkFaint: "#666",
+    accent: "#D4AF37", accentSoft: "rgba(212,175,55,0.12)",
+    success: "#4CAF50", error: "#EF5350",
+    border: "rgba(255,255,255,0.06)", borderStrong: "rgba(255,255,255,0.12)",
+    shadow: "0 4px 24px rgba(0,0,0,0.4)", shadowStrong: "0 12px 48px rgba(0,0,0,0.6)",
+  },
+  sepia: {
+    id: "sepia", name: "Sepia",
+    bg: "#F5F0E6", bgAlt: "#EDE5D8",
+    card: "rgba(255,252,245,0.95)", cardHover: "#FFFCF5",
+    ink: "#3D3429", inkMuted: "#6B5D4D", inkFaint: "#998B7A",
+    accent: "#8B4513", accentSoft: "rgba(139,69,19,0.1)",
+    success: "#558B2F", error: "#BF360C",
+    border: "rgba(61,52,41,0.1)", borderStrong: "rgba(61,52,41,0.2)",
+    shadow: "0 4px 24px rgba(61,52,41,0.08)", shadowStrong: "0 12px 48px rgba(61,52,41,0.15)",
+  },
+  midnight: {
+    id: "midnight", name: "Midnight",
+    bg: "#0D1B2A", bgAlt: "#1B263B",
+    card: "rgba(27,38,59,0.95)", cardHover: "rgba(35,48,72,1)",
+    ink: "#E0E1DD", inkMuted: "#8D99AE", inkFaint: "#5C677D",
+    accent: "#00B4D8", accentSoft: "rgba(0,180,216,0.12)",
+    success: "#06D6A0", error: "#EF476F",
+    border: "rgba(224,225,221,0.06)", borderStrong: "rgba(224,225,221,0.12)",
+    shadow: "0 4px 24px rgba(0,0,0,0.5)", shadowStrong: "0 12px 48px rgba(0,0,0,0.7)",
+  }
+};
 
 const SOURCES = {
-  classics: { id: "classics", name: "Classic Games", icon: "👑", desc: "Famous games from Morphy to Carlsen" },
-  lichess: { id: "lichess", name: "Lichess", icon: "🐴", desc: "Online games from lichess.org" },
-  chesscom: { id: "chesscom", name: "Chess.com", icon: "♟️", desc: "Online games from chess.com" },
-  imported: { id: "imported", name: "My Games", icon: "📁", desc: "Your imported PGN games" }
+  classics: { id: "classics", name: "Classics", icon: "👑" },
+  lichess: { id: "lichess", name: "Lichess", icon: "🐴" },
+  chesscom: { id: "chesscom", name: "Chess.com", icon: "♟" },
+  imported: { id: "imported", name: "My Games", icon: "📁" }
 };
 
 const LICHESS_PLAYERS = [
   { username: "DrNykterstein", name: "Magnus Carlsen" },
   { username: "Hikaru", name: "Hikaru Nakamura" },
   { username: "Firouzja2003", name: "Alireza Firouzja" },
-  { username: "DanielNaroditsky", name: "Daniel Naroditsky" },
-  { username: "penguingm1", name: "Andrew Tang" },
 ];
 
 const CHESSCOM_PLAYERS = [
   { username: "MagnusCarlsen", name: "Magnus Carlsen" },
   { username: "Hikaru", name: "Hikaru Nakamura" },
   { username: "GothamChess", name: "Levy Rozman" },
-  { username: "DanielNaroditsky", name: "Daniel Naroditsky" },
 ];
 
-export default function App() {
-  const [mode, setMode] = useState("library");
+const transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)";
+const fonts = {
+  display: '"Playfair Display", Georgia, serif',
+  body: '"Inter", -apple-system, sans-serif',
+  mono: '"SF Mono", monospace'
+};
 
-  // Auth state
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════════════
+
+export default function App() {
+  // Theme - load from localStorage initially, sync with Supabase when logged in
+  const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
+  const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "carrara_gold");
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const theme = THEMES[themeId] || THEMES.dark;
+  
+  // Save theme to Supabase when user is logged in
+  const savePrefsToSupabase = useCallback(async (userId, prefs) => {
+    if (!supabase || !userId) return;
+    try {
+      await db.savePreferences(userId, {
+        app_theme: prefs.appTheme || themeId,
+        board_theme: prefs.boardTheme || boardThemeId,
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) { console.error("Failed to save preferences:", e); }
+  }, [themeId, boardThemeId]);
+
+  useEffect(() => {
+    localStorage.setItem("cm-theme", themeId);
+    document.body.style.background = theme.bg;
+    document.body.style.color = theme.ink;
+  }, [themeId, theme]);
+
+  // Change theme and save to Supabase if logged in
+  const changeTheme = useCallback((newThemeId) => {
+    setThemeId(newThemeId);
+    localStorage.setItem("cm-theme", newThemeId);
+    if (user) {
+      savePrefsToSupabase(user.id, { appTheme: newThemeId });
+    }
+  }, [user, savePrefsToSupabase]);
+
+  const changeBoardTheme = useCallback((newBoardThemeId) => {
+    setBoardThemeId(newBoardThemeId);
+    localStorage.setItem("cm-board-theme", newBoardThemeId);
+    if (user) {
+      savePrefsToSupabase(user.id, { boardTheme: newBoardThemeId });
+    }
+  }, [user, savePrefsToSupabase]);
+
+  const [activeTab, setActiveTab] = useState("library");
+  const [showSettings, setShowSettings] = useState(false);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // login or signup
+  const [authMode, setAuthMode] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState(null);
-
-  // Library state
   const [source, setSource] = useState("classics");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -55,639 +144,382 @@ export default function App() {
   const [loadingGames, setLoadingGames] = useState(false);
   const [error, setError] = useState(null);
   const [currentPlayer, setCurrentPlayer] = useState(null);
-  
   const [selectedGame, setSelectedGame] = useState(null);
   const [libraryChess] = useState(() => new Chess());
   const [libraryFen, setLibraryFen] = useState(new Chess().fen());
   const [libraryMoveIndex, setLibraryMoveIndex] = useState(0);
   const [libraryMoves, setLibraryMoves] = useState([]);
   const [libraryOrientation, setLibraryOrientation] = useState("w");
-
-  // Import modal
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [importedGames, setImportedGames] = useState([]);
   const [importLoading, setImportLoading] = useState(false);
-
-  // Grandmaster state
   const [selectedBotId, setSelectedBotId] = useState("carlsen");
   const [grandmasterView, setGrandmasterView] = useState("select");
-
-  // Zone Mode state
   const [showZoneMode, setShowZoneMode] = useState(false);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // AUTH MANAGEMENT
-  // ═══════════════════════════════════════════════════════════════════════════
+  const selectedBot = useMemo(() => personalities.find(p => p.id === selectedBotId), [selectedBotId]);
+
+  // Auth & Preferences
   useEffect(() => {
-    // Check initial auth state
     const checkUser = async () => {
-      const { data } = await auth.getUser();
-      setUser(data?.user || null);
+      if (!supabase) { setAuthLoading(false); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        if (user) {
+          loadImportedGames(user.id);
+          // Load preferences from Supabase
+          const { data: prefs } = await db.getPreferences(user.id);
+          if (prefs) {
+            if (prefs.app_theme && THEMES[prefs.app_theme]) {
+              setThemeId(prefs.app_theme);
+              localStorage.setItem("cm-theme", prefs.app_theme);
+            }
+            if (prefs.board_theme) {
+              setBoardThemeId(prefs.board_theme);
+              localStorage.setItem("cm-board-theme", prefs.board_theme);
+            }
+          }
+          setPrefsLoaded(true);
+        }
+      } catch (e) { console.error(e); }
       setAuthLoading(false);
     };
     checkUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        loadImportedGames(session.user.id);
-      } else {
-        setImportedGames([]);
-      }
-    });
-
-    return () => subscription?.unsubscribe();
-  }, []);
-
-  // Load imported games when user logs in
-  useEffect(() => {
-    if (user) {
-      loadImportedGames(user.id);
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        setUser(session?.user || null);
+        if (session?.user) {
+          loadImportedGames(session.user.id);
+          // Load preferences on login
+          if (event === 'SIGNED_IN') {
+            const { data: prefs } = await db.getPreferences(session.user.id);
+            if (prefs) {
+              if (prefs.app_theme && THEMES[prefs.app_theme]) {
+                setThemeId(prefs.app_theme);
+                localStorage.setItem("cm-theme", prefs.app_theme);
+              }
+              if (prefs.board_theme) {
+                setBoardThemeId(prefs.board_theme);
+                localStorage.setItem("cm-board-theme", prefs.board_theme);
+              }
+            }
+            setPrefsLoaded(true);
+          }
+        } else {
+          setImportedGames([]);
+          setPrefsLoaded(false);
+        }
+      });
+      return () => subscription.unsubscribe();
     }
-  }, [user]);
+  }, []);
 
   const loadImportedGames = async (userId) => {
-    const { data, error } = await db.getImportedGames(userId);
-    if (!error && data) {
-      // Transform DB format to app format
-      setImportedGames(data.map(g => ({
-        id: g.id,
-        white: g.white,
-        black: g.black,
-        whiteElo: g.white_elo,
-        blackElo: g.black_elo,
-        result: g.result,
-        date: g.date,
-        event: g.event,
-        opening: g.opening,
-        pgn: g.pgn,
-        source: "imported"
+    try {
+      const games = await db.getImportedGames(userId);
+      setImportedGames(games.map(g => ({
+        id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn
       })));
-    }
-  };
-
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setAuthError(null);
-    
-    if (authMode === "login") {
-      const { error } = await auth.signIn(authEmail, authPassword);
-      if (error) {
-        setAuthError(error.message);
-      } else {
-        setShowAuthModal(false);
-        setAuthEmail("");
-        setAuthPassword("");
-      }
-    } else {
-      const { error } = await auth.signUp(authEmail, authPassword);
-      if (error) {
-        setAuthError(error.message);
-      } else {
-        setAuthError("Check your email to confirm your account!");
-      }
-    }
-  };
-
-  const handleSignOut = async () => {
-    await auth.signOut();
-    setImportedGames([]);
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CLASSICS SEARCH
-  // ═══════════════════════════════════════════════════════════════════════════
-  const handleClassicsSearch = useCallback((query) => {
-    if (!query || query.length < 2) {
-      setGames([]);
-      setSelectedCategory(null);
-      return;
-    }
-    const results = searchGames(query);
-    setGames(results);
-    setSelectedCategory(null);
-    setCurrentPlayer({ name: `Search: "${query}"` });
-    if (results.length > 0) handleSelectGame(results[0]);
-  }, []);
-
-  const handleCategorySelect = useCallback((catId) => {
-    setSelectedCategory(catId);
-    const catGames = getGamesByCategory(catId);
-    setGames(catGames);
-    setCurrentPlayer({ name: GAME_CATEGORIES[catId]?.name || catId });
-    if (catGames.length > 0) handleSelectGame(catGames[0]);
-  }, []);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LICHESS
-  // ═══════════════════════════════════════════════════════════════════════════
-  const searchLichess = useCallback(async (query) => {
-    if (!query || query.length < 2) return [];
-    try {
-      const res = await fetch(`https://lichess.org/api/player/autocomplete?term=${encodeURIComponent(query)}&object=true`);
-      if (res.ok) {
-        const data = await res.json();
-        return (data.result || []).map(p => ({ username: p.id, name: p.name || p.id, title: p.title, source: "lichess" }));
-      }
     } catch (e) { console.error(e); }
-    return [];
-  }, []);
+  };
 
-  const fetchLichessGames = useCallback(async (username) => {
-    const res = await fetch(
-      `https://lichess.org/api/games/user/${encodeURIComponent(username)}?max=30&pgnInJson=true&opening=true`,
-      { headers: { "Accept": "application/x-ndjson" } }
-    );
-    if (!res.ok) throw new Error(`Player not found on Lichess`);
-    const text = await res.text();
-    return text.trim().split("\n").filter(l => l).map(line => {
-      try {
+  const handleSignIn = async (e) => {
+    e.preventDefault(); setAuthError(null);
+    try {
+      const { error } = await auth.signIn(authEmail, authPassword);
+      if (error) throw error;
+      setShowAuthModal(false); setAuthEmail(""); setAuthPassword("");
+    } catch (e) { setAuthError(e.message); }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault(); setAuthError(null);
+    try {
+      const { error } = await auth.signUp(authEmail, authPassword);
+      if (error) throw error;
+      setAuthError("Check your email for confirmation!");
+    } catch (e) { setAuthError(e.message); }
+  };
+
+  const handleSignOut = async () => { await auth.signOut(); setImportedGames([]); };
+
+  // Library
+  const searchLichess = async (query) => {
+    if (!query.trim()) return;
+    setLoadingGames(true); setError(null); setGames([]);
+    try {
+      const res = await fetch(`https://lichess.org/api/games/user/${encodeURIComponent(query)}?max=20&pgnInJson=true`, { headers: { Accept: "application/x-ndjson" } });
+      if (!res.ok) throw new Error("Player not found");
+      const text = await res.text();
+      const parsed = text.trim().split("\n").filter(Boolean).map(line => {
         const g = JSON.parse(line);
-        const w = g.players?.white;
-        const b = g.players?.black;
         return {
-          id: g.id,
-          white: w?.user?.name || w?.user?.id || (w?.aiLevel ? `AI Level ${w.aiLevel}` : "Anonymous"),
-          black: b?.user?.name || b?.user?.id || (b?.aiLevel ? `AI Level ${b.aiLevel}` : "Anonymous"),
-          whiteElo: w?.rating, blackElo: b?.rating,
-          result: g.winner === "white" ? "1-0" : g.winner === "black" ? "0-1" : "½-½",
-          date: g.createdAt ? new Date(g.createdAt).toLocaleDateString() : "",
-          event: g.speed || "Online",
-          opening: g.opening?.name,
-          pgn: g.pgn,
-          source: "lichess",
-          url: `https://lichess.org/${g.id}`
+          id: g.id, white: g.players?.white?.user?.name || "?", black: g.players?.black?.user?.name || "?",
+          result: g.status === "draw" ? "½-½" : g.winner === "white" ? "1-0" : g.winner === "black" ? "0-1" : "*",
+          date: new Date(g.createdAt).toLocaleDateString(), event: g.speed || "Game", pgn: g.pgn, url: `https://lichess.org/${g.id}`
         };
-      } catch { return null; }
-    }).filter(g => g?.pgn);
-  }, []);
+      });
+      setGames(parsed); setCurrentPlayer(query);
+    } catch (e) { setError(e.message); }
+    setLoadingGames(false);
+  };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CHESS.COM
-  // ═══════════════════════════════════════════════════════════════════════════
-  const fetchChessComGames = useCallback(async (username) => {
-    const archivesRes = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
-    if (!archivesRes.ok) throw new Error(`Player not found on Chess.com`);
-    const archives = await archivesRes.json();
-    const archiveUrls = archives.archives || [];
-    if (archiveUrls.length === 0) throw new Error("No games found");
-    const recentUrl = archiveUrls[archiveUrls.length - 1];
-    const gamesRes = await fetch(recentUrl);
-    if (!gamesRes.ok) throw new Error("Failed to load games");
-    const gamesData = await gamesRes.json();
-    return (gamesData.games || []).slice(-30).reverse().map(g => ({
-      id: g.uuid || g.url,
-      white: g.white?.username || "?",
-      black: g.black?.username || "?",
-      whiteElo: g.white?.rating, blackElo: g.black?.rating,
-      result: g.white?.result === "win" ? "1-0" : g.black?.result === "win" ? "0-1" : "½-½",
-      date: g.end_time ? new Date(g.end_time * 1000).toLocaleDateString() : "",
-      event: g.time_class || "Online",
-      opening: g.eco,
-      pgn: g.pgn,
-      source: "chesscom",
-      url: g.url
-    })).filter(g => g.pgn);
-  }, []);
+  const searchChessCom = async (query) => {
+    if (!query.trim()) return;
+    setLoadingGames(true); setError(null); setGames([]);
+    try {
+      const archivesRes = await fetch(`https://api.chess.com/pub/player/${query.toLowerCase()}/games/archives`);
+      if (!archivesRes.ok) throw new Error("Player not found");
+      const { archives } = await archivesRes.json();
+      if (!archives?.length) throw new Error("No games");
+      const latestRes = await fetch(archives[archives.length - 1]);
+      const { games: monthGames } = await latestRes.json();
+      const parsed = monthGames.slice(-20).reverse().map(g => ({
+        id: g.uuid, white: g.white?.username || "?", black: g.black?.username || "?",
+        result: g.pgn?.includes("1-0") ? "1-0" : g.pgn?.includes("0-1") ? "0-1" : "½-½",
+        date: new Date(g.end_time * 1000).toLocaleDateString(), event: g.time_class || "Game", pgn: g.pgn, url: g.url
+      }));
+      setGames(parsed); setCurrentPlayer(query);
+    } catch (e) { setError(e.message); }
+    setLoadingGames(false);
+  };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PGN IMPORT (saves to Supabase)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const handleImportPGN = useCallback(async () => {
-    if (!importText.trim()) return;
-    if (!user) {
-      setShowAuthModal(true);
-      return;
-    }
-    
-    setImportLoading(true);
-    
-    // Split by double newlines to handle multiple games
-    const pgnTexts = importText.split(/\n\n(?=\[)/);
-    const newGames = [];
-    
-    for (const pgnText of pgnTexts) {
-      if (!pgnText.trim()) continue;
-      
-      try {
-        const chess = new Chess();
-        chess.loadPgn(pgnText, { strict: false });
-        const headers = chess.header();
-        
-        newGames.push({
-          white: headers.White || "?",
-          black: headers.Black || "?",
-          whiteElo: headers.WhiteElo ? parseInt(headers.WhiteElo) : null,
-          blackElo: headers.BlackElo ? parseInt(headers.BlackElo) : null,
-          result: headers.Result || "*",
-          date: headers.Date || "",
-          event: headers.Event || "Imported Game",
-          opening: headers.Opening || headers.ECO || "",
-          pgn: pgnText
-        });
-      } catch (e) {
-        console.error("Failed to parse PGN:", e);
-      }
-    }
-    
-    if (newGames.length > 0) {
-      // Save to Supabase
-      const { data, error } = await db.saveImportedGames(user.id, newGames);
-      
-      if (error) {
-        alert("Failed to save games: " + error.message);
-      } else if (data) {
-        // Transform and add to local state
-        const savedGames = data.map(g => ({
-          id: g.id,
-          white: g.white,
-          black: g.black,
-          whiteElo: g.white_elo,
-          blackElo: g.black_elo,
-          result: g.result,
-          date: g.date,
-          event: g.event,
-          opening: g.opening,
-          pgn: g.pgn,
-          source: "imported"
-        }));
-        
-        setImportedGames(prev => [...savedGames, ...prev]);
-        setShowImportModal(false);
-        setImportText("");
-        setSource("imported");
-        setGames([...savedGames, ...importedGames]);
-        setCurrentPlayer({ name: "My Games" });
-        handleSelectGame(savedGames[0]);
-      }
-    } else {
-      alert("Failed to parse PGN. Please check the format.");
-    }
-    
-    setImportLoading(false);
-  }, [importText, user, importedGames]);
+  const handleSearch = () => {
+    if (source === "classics") { setSearchResults(searchGames(searchQuery)); setSelectedCategory(null); }
+    else if (source === "lichess") searchLichess(searchQuery);
+    else if (source === "chesscom") searchChessCom(searchQuery);
+  };
 
-  const handleFileUpload = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => setImportText(event.target?.result || "");
-    reader.readAsText(file);
-  }, []);
+  const selectCategory = (catId) => { setSelectedCategory(catId); setSearchResults([]); setGames(getGamesByCategory(catId)); };
 
-  const deleteImportedGame = useCallback(async (gameId) => {
-    if (!user) return;
-    
-    const { error } = await db.deleteImportedGame(gameId);
-    if (!error) {
-      setImportedGames(prev => prev.filter(g => g.id !== gameId));
-      setGames(prev => prev.filter(g => g.id !== gameId));
-    }
-  }, [user]);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // UNIFIED SEARCH (for Lichess)
-  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (source !== "lichess") return;
-    const timer = setTimeout(async () => {
-      if (searchQuery.length < 2) { setSearchResults([]); return; }
-      const results = await searchLichess(searchQuery);
-      setSearchResults(results);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, source, searchLichess]);
+    if (source === "classics") { setGames([]); setSearchResults([]); setSelectedCategory(null); }
+    else if (source === "imported") { setGames(importedGames); }
+    else { setGames([]); }
+    setCurrentPlayer(null);
+  }, [source, importedGames]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FETCH GAMES
-  // ═══════════════════════════════════════════════════════════════════════════
-  const fetchGames = useCallback(async (player) => {
-    setLoadingGames(true);
-    setError(null);
-    setGames([]);
-    setSelectedGame(null);
-    setCurrentPlayer(player);
-    setSearchResults([]);
-
-    try {
-      let fetchedGames = [];
-      if (source === "lichess") {
-        fetchedGames = await fetchLichessGames(player.username);
-      } else if (source === "chesscom") {
-        fetchedGames = await fetchChessComGames(player.username);
-      }
-      setGames(fetchedGames);
-      if (fetchedGames.length > 0) handleSelectGame(fetchedGames[0]);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoadingGames(false);
-    }
-  }, [source, fetchLichessGames, fetchChessComGames]);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // GAME SELECTION & NAVIGATION
-  // ═══════════════════════════════════════════════════════════════════════════
-  const handleSelectGame = useCallback((game) => {
+  const selectGame = useCallback((game) => {
+    if (!game?.pgn) return;
     setSelectedGame(game);
-    if (!game?.pgn) {
-      setLibraryMoves([]);
-      setLibraryMoveIndex(0);
-      libraryChess.reset();
-      setLibraryFen(libraryChess.fen());
-      return;
-    }
     try {
-      const temp = new Chess();
-      temp.loadPgn(game.pgn, { strict: false });
-      const moves = temp.history();
-      setLibraryMoves(moves);
-      setLibraryMoveIndex(0);
+      libraryChess.reset();
+      libraryChess.loadPgn(game.pgn, { strict: false });
+      setLibraryMoves(libraryChess.history());
       libraryChess.reset();
       setLibraryFen(libraryChess.fen());
-    } catch (e) {
-      setLibraryMoves([]);
-    }
+      setLibraryMoveIndex(0);
+    } catch { setLibraryMoves([]); }
   }, [libraryChess]);
 
   const goToMove = useCallback((idx) => {
     const clamped = Math.max(0, Math.min(idx, libraryMoves.length));
     setLibraryMoveIndex(clamped);
     libraryChess.reset();
-    for (let i = 0; i < clamped; i++) {
-      try { libraryChess.move(libraryMoves[i]); } catch { break; }
-    }
+    for (let i = 0; i < clamped; i++) { try { libraryChess.move(libraryMoves[i]); } catch { break; } }
     setLibraryFen(libraryChess.fen());
   }, [libraryMoves, libraryChess]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (mode !== "library" || !selectedGame || showImportModal || showAuthModal) return;
-      if (e.key === "ArrowLeft") { e.preventDefault(); goToMove(libraryMoveIndex - 1); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); goToMove(libraryMoveIndex + 1); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); goToMove(0); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); goToMove(libraryMoves.length); }
-      else if (e.key === "f" || e.key === "F") { e.preventDefault(); setLibraryOrientation(o => o === "w" ? "b" : "w"); }
+  const capturedPieces = useMemo(() => {
+    const init = { w: { p: 8, n: 2, b: 2, r: 2, q: 1 }, b: { p: 8, n: 2, b: 2, r: 2, q: 1 } };
+    const cur = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
+    libraryChess.board().flat().filter(Boolean).forEach(p => { if (cur[p.color][p.type] !== undefined) cur[p.color][p.type]++; });
+    return {
+      byWhite: Object.entries(init.b).flatMap(([t, c]) => Array(c - cur.b[t]).fill(t)),
+      byBlack: Object.entries(init.w).flatMap(([t, c]) => Array(c - cur.w[t]).fill(t))
     };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [mode, selectedGame, libraryMoveIndex, libraryMoves.length, goToMove, showImportModal, showAuthModal]);
+  }, [libraryFen]);
 
-  // Switch source handler
-  const handleSourceChange = (newSource) => {
-    setSource(newSource);
-    setGames([]);
-    setCurrentPlayer(null);
-    setSearchQuery("");
-    setSearchResults([]);
-    setSelectedCategory(null);
-    setError(null);
-    
-    if (newSource === "imported") {
-      setGames(importedGames);
-      setCurrentPlayer({ name: "My Games" });
-      if (importedGames.length > 0) handleSelectGame(importedGames[0]);
-    }
+  const handleImportPGN = async () => {
+    if (!importText.trim() || !user) return;
+    setImportLoading(true);
+    try {
+      const pgnBlocks = importText.split(/\n\n(?=\[Event)/);
+      const parsed = pgnBlocks.map(pgn => {
+        const temp = new Chess();
+        try { temp.loadPgn(pgn, { strict: false }); } catch { return null; }
+        const h = temp.header();
+        return { white: h.White || "?", black: h.Black || "?", result: h.Result || "*", date: h.Date, event: h.Event || "Imported", pgn };
+      }).filter(Boolean);
+      if (!parsed.length) throw new Error("No valid PGN");
+      const saved = await db.saveImportedGames(user.id, parsed);
+      setImportedGames(prev => [...saved.map(g => ({ id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn })), ...prev]);
+      setShowImportModal(false); setImportText("");
+    } catch (e) { alert(e.message); }
+    setImportLoading(false);
   };
 
-  const lastMove = libraryMoveIndex > 0 ? (() => {
-    const t = new Chess();
-    for (let i = 0; i < libraryMoveIndex; i++) {
-      try {
-        const m = t.move(libraryMoves[i]);
-        if (i === libraryMoveIndex - 1) return { from: m.from, to: m.to };
-      } catch { break; }
-    }
-    return null;
-  })() : null;
+  const deleteImportedGame = async (id) => {
+    try {
+      await db.deleteImportedGame(id);
+      setImportedGames(prev => prev.filter(g => g.id !== id));
+      if (selectedGame?.id === id) setSelectedGame(null);
+    } catch (e) { alert(e.message); }
+  };
 
-  const selectedBot = personalities[selectedBotId];
+  const displayGames = source === "classics" ? (searchResults.length > 0 ? searchResults : games) : games;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
+
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)", color: "#fff" }}>
-      {/* HEADER */}
-      <header style={{ padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div style={{ minHeight: "100vh", background: theme.bg, color: theme.ink, fontFamily: fonts.body, transition }}>
+      {/* Header */}
+      <header style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: `linear-gradient(to bottom, ${theme.bg} 0%, ${theme.bg}ee 100%)`,
+        backdropFilter: "blur(12px)", borderBottom: `1px solid ${theme.border}`,
+      }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 40 }}>♛</span>
-            <span style={{ fontSize: 26, fontWeight: 800 }}>Chessmaster 2026</span>
+            <span style={{ fontSize: 32 }}>♛</span>
+            <span style={{ fontFamily: fonts.display, fontSize: 22, fontWeight: 500 }}>Chessmaster</span>
           </div>
-          
+
+          <nav style={{ display: "flex", gap: 32 }}>
+            {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "training", label: "Training" }].map(tab => (
+              <button key={tab.id} onClick={() => tab.id === "training" ? setShowZoneMode(true) : (setActiveTab(tab.id), tab.id === "play" && setGrandmasterView("select"))}
+                style={{
+                  background: "none", border: "none", fontFamily: fonts.body, fontSize: 12, fontWeight: 500,
+                  letterSpacing: "0.1em", textTransform: "uppercase", color: theme.ink,
+                  opacity: activeTab === tab.id ? 1 : 0.5, cursor: "pointer", padding: "8px 0", position: "relative", transition,
+                }}>
+                {tab.label}
+                {activeTab === tab.id && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: theme.accent, borderRadius: 1 }} />}
+              </button>
+            ))}
+          </nav>
+
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ display: "flex", gap: 4, background: "rgba(0,0,0,0.3)", borderRadius: 12, padding: 4 }}>
-              <button onClick={() => setMode("library")}
-                style={{ padding: "16px 32px", borderRadius: 10, border: "none", background: mode === "library" ? "#4CAF50" : "transparent", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 24 }}>📚</span><span>Game Library</span>
-              </button>
-              <button onClick={() => { setMode("grandmaster"); setGrandmasterView("select"); }}
-                style={{ padding: "16px 32px", borderRadius: 10, border: "none", background: mode === "grandmaster" ? "#4CAF50" : "transparent", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 24 }}>🎮</span><span>Play vs AI</span>
-              </button>
-              <button onClick={() => setShowZoneMode(true)}
-                style={{ padding: "16px 32px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 24 }}>🎯</span><span>Training Zone</span>
-              </button>
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowSettings(!showSettings)} style={{
+                background: theme.accentSoft, border: `1px solid ${theme.border}`, borderRadius: 8,
+                padding: "8px 14px", cursor: "pointer", color: theme.ink, fontSize: 14, transition,
+              }}>⚙</button>
+              {showSettings && (
+                <div style={{
+                  position: "absolute", top: "100%", right: 0, marginTop: 8, background: theme.card,
+                  border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, boxShadow: theme.shadowStrong,
+                  zIndex: 200, minWidth: 180,
+                }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>THEME</p>
+                  {Object.values(THEMES).map(t => (
+                    <button key={t.id} onClick={() => { changeTheme(t.id); setShowSettings(false); }}
+                      style={{
+                        width: "100%", padding: "10px 12px", borderRadius: 8, border: "none",
+                        background: themeId === t.id ? theme.accentSoft : "transparent", color: theme.ink,
+                        cursor: "pointer", textAlign: "left", fontSize: 13, fontWeight: 500,
+                        display: "flex", alignItems: "center", gap: 10, marginBottom: 4, transition,
+                      }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 9, background: t.bg, border: `2px solid ${t.ink}` }} />
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            
-            {/* Auth Button */}
             {supabase && (
               user ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 14, opacity: 0.7 }}>{user.email}</span>
-                  <button onClick={handleSignOut}
-                    style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "#fff", cursor: "pointer" }}>
-                    Sign Out
-                  </button>
+                  <span style={{ fontSize: 13, color: theme.inkMuted }}>{user.email?.split("@")[0]}</span>
+                  <button onClick={handleSignOut} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer", fontSize: 13 }}>Sign Out</button>
                 </div>
               ) : (
-                <button onClick={() => setShowAuthModal(true)}
-                  style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: "#2196F3", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
-                  Sign In
-                </button>
+                <button onClick={() => setShowAuthModal(true)} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Sign In</button>
               )
             )}
           </div>
         </div>
       </header>
 
-      {/* LIBRARY MODE */}
-      {mode === "library" && (
-        <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
-          {/* Source Tabs */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+      {/* Library */}
+      {activeTab === "library" && (
+        <main style={{ maxWidth: 1400, margin: "0 auto", padding: 32 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: `1px solid ${theme.border}`, paddingBottom: 16 }}>
             {Object.values(SOURCES).map(s => (
-              <button key={s.id} onClick={() => handleSourceChange(s.id)}
+              <button key={s.id} onClick={() => setSource(s.id)}
                 style={{
-                  flex: "1 1 200px", padding: "16px 20px", borderRadius: 12,
-                  border: source === s.id ? "2px solid #4CAF50" : "2px solid transparent",
-                  background: source === s.id ? "rgba(76,175,80,0.15)" : "rgba(255,255,255,0.05)",
-                  color: "#fff", cursor: "pointer", textAlign: "left"
+                  padding: "10px 20px", borderRadius: 8,
+                  border: source === s.id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                  background: source === s.id ? theme.accentSoft : "transparent", color: theme.ink,
+                  cursor: "pointer", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, transition,
                 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <span style={{ fontSize: 24 }}>{s.icon}</span>
-                  <span style={{ fontWeight: 700, fontSize: 16 }}>{s.name}</span>
-                  {s.id === "imported" && importedGames.length > 0 && (
-                    <span style={{ fontSize: 12, background: "#4CAF50", padding: "2px 8px", borderRadius: 10 }}>{importedGames.length}</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.6 }}>{s.desc}</div>
+                <span>{s.icon}</span>{s.name}
               </button>
             ))}
-            {/* Import Button */}
-            <button onClick={() => user ? setShowImportModal(true) : setShowAuthModal(true)}
-              style={{
-                padding: "16px 20px", borderRadius: 12, border: "2px dashed rgba(255,255,255,0.3)",
-                background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 10
-              }}>
-              <span style={{ fontSize: 24 }}>➕</span>
-              <span style={{ fontWeight: 700 }}>{user ? "Import PGN" : "Sign in to Import"}</span>
-            </button>
           </div>
 
-          {/* CLASSICS SOURCE */}
+          {source !== "imported" && (
+            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+              <input type="text" placeholder={source === "classics" ? "Search games..." : "Enter username..."}
+                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                style={{ flex: 1, padding: "14px 20px", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.card, color: theme.ink, fontSize: 14, outline: "none" }} />
+              <button onClick={handleSearch} style={{ padding: "14px 28px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Search</button>
+            </div>
+          )}
+
           {source === "classics" && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, marginBottom: 20 }}>
-              <input type="text" value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); handleClassicsSearch(e.target.value); }}
-                placeholder="Search classic games (e.g. Fischer, Immortal, Sicilian)..."
-                style={{ width: "100%", padding: "14px 18px", borderRadius: 10, border: "2px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", color: "#fff", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }}
-              />
-              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 10 }}>BROWSE BY PLAYER</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {Object.entries(GAME_CATEGORIES).map(([id, cat]) => (
-                  <button key={id} onClick={() => handleCategorySelect(id)}
-                    style={{
-                      padding: "10px 16px", borderRadius: 8, border: "none",
-                      background: selectedCategory === id ? "#4CAF50" : "rgba(255,255,255,0.08)",
-                      color: "#fff", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", gap: 8
-                    }}>
-                    <span>{cat.icon}</span>
-                    <span>{cat.name}</span>
-                    <span style={{ opacity: 0.5, fontSize: 11 }}>({getGamesByCategory(id).length})</span>
-                  </button>
-                ))}
-              </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+              {Object.entries(GAME_CATEGORIES).map(([id, cat]) => (
+                <button key={id} onClick={() => selectCategory(id)}
+                  style={{
+                    padding: "8px 16px", borderRadius: 20,
+                    border: selectedCategory === id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                    background: selectedCategory === id ? theme.accentSoft : "transparent", color: theme.ink, cursor: "pointer", fontSize: 12, fontWeight: 500, transition,
+                  }}>
+                  {cat.icon} {cat.name}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* LICHESS SOURCE */}
-          {source === "lichess" && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, marginBottom: 20 }}>
-              <div style={{ position: "relative", marginBottom: 16 }}>
-                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search Lichess username..."
-                  style={{ width: "100%", padding: "14px 18px", borderRadius: 10, border: "2px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", color: "#fff", fontSize: 16, outline: "none", boxSizing: "border-box" }}
-                />
-                {searchResults.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1e1e2e", borderRadius: 10, marginTop: 4, maxHeight: 250, overflowY: "auto", zIndex: 100, border: "1px solid rgba(255,255,255,0.1)" }}>
-                    {searchResults.map((p, i) => (
-                      <button key={i} onClick={() => { setSearchQuery(p.name); fetchGames(p); }}
-                        style={{ width: "100%", padding: "12px 16px", border: "none", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "transparent", color: "#fff", textAlign: "left", cursor: "pointer" }}>
-                        {p.title && <span style={{ fontSize: 11, padding: "2px 6px", background: "rgba(255,193,7,0.3)", borderRadius: 4, color: "#ffc107", marginRight: 8 }}>{p.title}</span>}
-                        <span style={{ fontWeight: 600 }}>{p.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 10 }}>TOP PLAYERS</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {LICHESS_PLAYERS.map(p => (
-                  <button key={p.username} onClick={() => { setSearchQuery(p.name); fetchGames(p); }}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.08)", color: "#fff", cursor: "pointer", fontSize: 13 }}>
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+          {(source === "lichess" || source === "chesscom") && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+              <span style={{ fontSize: 12, color: theme.inkMuted, alignSelf: "center", marginRight: 8 }}>Quick:</span>
+              {(source === "lichess" ? LICHESS_PLAYERS : CHESSCOM_PLAYERS).map(p => (
+                <button key={p.username} onClick={() => { setSearchQuery(p.username); source === "lichess" ? searchLichess(p.username) : searchChessCom(p.username); }}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer", fontSize: 12 }}>
+                  {p.name}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* CHESS.COM SOURCE */}
-          {source === "chesscom" && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, marginBottom: 20 }}>
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && searchQuery && fetchGames({ username: searchQuery })}
-                placeholder="Enter Chess.com username and press Enter..."
-                style={{ width: "100%", padding: "14px 18px", borderRadius: 10, border: "2px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", color: "#fff", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 16 }}
-              />
-              <div style={{ fontSize: 12, opacity: 0.5, marginBottom: 10 }}>TOP PLAYERS</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {CHESSCOM_PLAYERS.map(p => (
-                  <button key={p.username} onClick={() => { setSearchQuery(p.name); fetchGames(p); }}
-                    style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.08)", color: "#fff", cursor: "pointer", fontSize: 13 }}>
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+          {source === "imported" && (
+            <div style={{ marginBottom: 24 }}>
+              {user ? (
+                <button onClick={() => setShowImportModal(true)} style={{ padding: "14px 28px", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.card, color: theme.ink, cursor: "pointer", fontWeight: 500, fontSize: 14 }}>+ Import PGN</button>
+              ) : (
+                <p style={{ color: theme.inkMuted }}>Sign in to import games</p>
+              )}
             </div>
           )}
 
-          {/* IMPORTED GAMES SOURCE */}
-          {source === "imported" && importedGames.length === 0 && (
-            <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 40, marginBottom: 20, textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📁</div>
-              <h3 style={{ margin: "0 0 8px 0" }}>No imported games yet</h3>
-              <p style={{ opacity: 0.7, marginBottom: 16 }}>
-                {user ? "Import PGN files to add your own games" : "Sign in to import and save your games"}
-              </p>
-              <button onClick={() => user ? setShowImportModal(true) : setShowAuthModal(true)}
-                style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: "#4CAF50", color: "#fff", cursor: "pointer", fontWeight: 700 }}>
-                {user ? "Import PGN" : "Sign In"}
-              </button>
-            </div>
-          )}
+          {loadingGames && <p style={{ color: theme.inkMuted }}>Loading...</p>}
+          {error && <p style={{ color: theme.error }}>{error}</p>}
 
-          {/* Error */}
-          {error && (
-            <div style={{ background: "rgba(244,67,54,0.2)", border: "1px solid #f44336", borderRadius: 10, padding: 16, marginBottom: 20, color: "#ff8a80" }}>
-              {error}
-            </div>
-          )}
-
-          {/* Loading */}
-          {loadingGames && (
-            <div style={{ textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
-              <div>Loading games...</div>
-            </div>
-          )}
-
-          {/* Games Display */}
-          {(games.length > 0 || (source === "classics" && selectedCategory)) && !loadingGames && (
-            <div style={{ display: "grid", gridTemplateColumns: "350px 520px 1fr", gap: 20 }}>
-              {/* Game list */}
-              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, maxHeight: 700, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                <h3 style={{ margin: "0 0 16px 0", fontSize: 16, opacity: 0.8 }}>
-                  {currentPlayer?.name || "Games"} ({games.length})
-                </h3>
-                <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-                  {games.map((game, i) => (
-                    <div key={game.id || i} style={{ position: "relative" }}>
-                      <button onClick={() => handleSelectGame(game)}
-                        style={{
-                          width: "100%", padding: "12px 14px", borderRadius: 10, textAlign: "left", cursor: "pointer",
-                          border: selectedGame?.id === game.id ? "2px solid #4CAF50" : "2px solid transparent",
-                          background: selectedGame?.id === game.id ? "rgba(76,175,80,0.2)" : "rgba(255,255,255,0.05)",
-                          color: "#fff"
-                        }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{game.white} vs {game.black}</span>
-                          <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: game.result === "1-0" ? "rgba(76,175,80,0.3)" : game.result === "0-1" ? "rgba(244,67,54,0.3)" : "rgba(255,255,255,0.1)" }}>{game.result}</span>
-                        </div>
-                        {game.title && <div style={{ fontSize: 12, fontWeight: 600, color: "#ffc107", marginBottom: 2 }}>{game.title}</div>}
-                        <div style={{ fontSize: 11, opacity: 0.6 }}>{game.opening || game.event} {game.year || game.date}</div>
-                      </button>
-                      {source === "imported" && user && (
-                        <button onClick={() => deleteImportedGame(game.id)}
-                          style={{ position: "absolute", top: 8, right: 8, background: "rgba(244,67,54,0.3)", border: "none", borderRadius: 4, color: "#fff", padding: "4px 8px", cursor: "pointer", fontSize: 10 }}>
-                          ✕
-                        </button>
+          {displayGames.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 400px 300px", gap: 24 }}>
+              {/* Games List */}
+              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
+                <div style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted }}>
+                  GAMES ({displayGames.length})
+                </div>
+                <div style={{ maxHeight: 600, overflowY: "auto" }}>
+                  {displayGames.map((game, i) => (
+                    <div key={game.id || i} onClick={() => selectGame(game)}
+                      style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, cursor: "pointer", background: selectedGame?.id === game.id ? theme.accentSoft : "transparent", transition }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>{game.title || `${game.white} vs ${game.black}`}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted }}>{game.result}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: theme.inkMuted }}>{game.event} {game.year || game.date}</div>
+                      {source === "imported" && (
+                        <button onClick={(e) => { e.stopPropagation(); deleteImportedGame(game.id); }}
+                          style={{ marginTop: 8, padding: "4px 8px", fontSize: 11, borderRadius: 4, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer" }}>Delete</button>
                       )}
                     </div>
                   ))}
@@ -695,63 +527,50 @@ export default function App() {
               </div>
 
               {/* Board */}
-              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <Board chess={libraryChess} orientation={libraryOrientation} interactive={false} lastMove={lastMove} size={480} />
-                <div style={{ display: "flex", gap: 8, marginTop: 20, width: "100%", maxWidth: 480 }}>
-                  <button onClick={() => goToMove(0)} disabled={libraryMoveIndex === 0} style={{ flex: 1, padding: 14, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: libraryMoveIndex === 0 ? "default" : "pointer", opacity: libraryMoveIndex === 0 ? 0.4 : 1, fontSize: 18 }}>⏮</button>
-                  <button onClick={() => goToMove(libraryMoveIndex - 1)} disabled={libraryMoveIndex === 0} style={{ flex: 1, padding: 14, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: libraryMoveIndex === 0 ? "default" : "pointer", opacity: libraryMoveIndex === 0 ? 0.4 : 1, fontSize: 18 }}>◀</button>
-                  <div style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{libraryMoveIndex} / {libraryMoves.length}</div>
-                  <button onClick={() => goToMove(libraryMoveIndex + 1)} disabled={libraryMoveIndex >= libraryMoves.length} style={{ flex: 1, padding: 14, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: libraryMoveIndex >= libraryMoves.length ? "default" : "pointer", opacity: libraryMoveIndex >= libraryMoves.length ? 0.4 : 1, fontSize: 18 }}>▶</button>
-                  <button onClick={() => goToMove(libraryMoves.length)} disabled={libraryMoveIndex >= libraryMoves.length} style={{ flex: 1, padding: 14, borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: libraryMoveIndex >= libraryMoves.length ? "default" : "pointer", opacity: libraryMoveIndex >= libraryMoves.length ? 0.4 : 1, fontSize: 18 }}>⏭</button>
+              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 20 }}>
+                <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2, alignItems: "center" }}>
+                  {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
-                <button onClick={() => setLibraryOrientation(o => o === "w" ? "b" : "w")} style={{ marginTop: 12, padding: "10px 20px", borderRadius: 8, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: "pointer" }}>🔄 Flip Board (F)</button>
+                <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} />
+                <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, alignItems: "center" }}>
+                  {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
+                  {[
+                    { l: "⏮", a: () => goToMove(0), d: libraryMoveIndex === 0 },
+                    { l: "◀", a: () => goToMove(libraryMoveIndex - 1), d: libraryMoveIndex === 0 },
+                    { l: "▶", a: () => goToMove(libraryMoveIndex + 1), d: libraryMoveIndex >= libraryMoves.length },
+                    { l: "⏭", a: () => goToMove(libraryMoves.length), d: libraryMoveIndex >= libraryMoves.length },
+                    { l: "↻", a: () => setLibraryOrientation(o => o === "w" ? "b" : "w") },
+                  ].map((b, i) => (
+                    <button key={i} onClick={b.a} disabled={b.d}
+                      style={{ padding: "10px 16px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgAlt, color: theme.ink, cursor: b.d ? "default" : "pointer", opacity: b.d ? 0.4 : 1, fontSize: 14, transition }}>{b.l}</button>
+                  ))}
+                </div>
+                {selectedGame && (
+                  <button onClick={() => setShowZoneMode(true)}
+                    style={{ width: "100%", marginTop: 16, padding: "14px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+                    🎯 Enter Zone Mode
+                  </button>
+                )}
               </div>
 
-              {/* Game info */}
-              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", maxHeight: 700 }}>
+              {/* Info */}
+              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 20, display: "flex", flexDirection: "column", maxHeight: 700 }}>
                 {selectedGame ? (
                   <>
-                    <div style={{ marginBottom: 16 }}>
-                      <h2 style={{ margin: "0 0 4px 0", fontSize: 18 }}>{selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}</h2>
-                      {selectedGame.title && <div style={{ fontSize: 14, opacity: 0.8 }}>{selectedGame.white} vs {selectedGame.black}</div>}
-                      {selectedGame.description && <p style={{ fontSize: 13, opacity: 0.7, margin: "8px 0 0 0", lineHeight: 1.5 }}>{selectedGame.description}</p>}
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                        <span style={{ fontSize: 12, padding: "4px 10px", background: "rgba(255,255,255,0.1)", borderRadius: 6 }}>{selectedGame.event}</span>
-                        <span style={{ fontSize: 12, padding: "4px 10px", background: "rgba(255,255,255,0.1)", borderRadius: 6 }}>{selectedGame.result}</span>
-                        {(selectedGame.year || selectedGame.date) && <span style={{ fontSize: 12, padding: "4px 10px", background: "rgba(255,255,255,0.1)", borderRadius: 6 }}>{selectedGame.year || selectedGame.date}</span>}
-                        {selectedGame.url && (
-                          <a href={selectedGame.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, padding: "4px 10px", background: "rgba(255,255,255,0.1)", borderRadius: 6, color: "#81d4fa", textDecoration: "none" }}>
-                            View online ↗
-                          </a>
-                        )}
-                      </div>
-                      {/* Enter Zone Button */}
-                      <button onClick={() => setShowZoneMode(true)}
-                        style={{
-                          marginTop: 16,
-                          padding: "12px 20px",
-                          borderRadius: 10,
-                          border: "none",
-                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                          color: "#fff",
-                          cursor: "pointer",
-                          fontWeight: 700,
-                          fontSize: 14,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          width: "100%",
-                          justifyContent: "center"
-                        }}>
-                        <span>🎯</span> Enter Zone Mode
-                      </button>
+                    <h2 style={{ fontFamily: fonts.display, fontSize: 18, marginBottom: 4 }}>{selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}</h2>
+                    {selectedGame.description && <p style={{ fontSize: 13, color: theme.inkMuted, lineHeight: 1.6, marginBottom: 12 }}>{selectedGame.description}</p>}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+                      <span style={{ fontSize: 11, padding: "4px 10px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.event}</span>
+                      <span style={{ fontSize: 11, padding: "4px 10px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.result}</span>
                     </div>
-                    <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 8 }}>MOVES</div>
-                    <div style={{ flex: 1, overflowY: "auto", background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: 14 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 8 }}>MOVES ({libraryMoveIndex}/{libraryMoves.length})</div>
+                    <div style={{ flex: 1, overflowY: "auto", background: theme.bgAlt, borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {libraryMoves.map((move, idx) => (
                           <span key={idx} onClick={() => goToMove(idx + 1)}
-                            style={{ padding: "6px 10px", borderRadius: 6, background: idx + 1 === libraryMoveIndex ? "#4CAF50" : "rgba(255,255,255,0.08)", cursor: "pointer", fontSize: 14 }}>
+                            style={{ padding: "6px 10px", borderRadius: 6, background: idx + 1 === libraryMoveIndex ? theme.accent : "transparent", color: idx + 1 === libraryMoveIndex ? (theme.id === "light" ? "#fff" : theme.bg) : theme.ink, cursor: "pointer", fontSize: 13, transition }}>
                             {idx % 2 === 0 && <span style={{ opacity: 0.5, marginRight: 3 }}>{Math.floor(idx / 2) + 1}.</span>}{move}
                           </span>
                         ))}
@@ -759,141 +578,81 @@ export default function App() {
                     </div>
                   </>
                 ) : (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5 }}>Select a game</div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: theme.inkMuted }}>Select a game</div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Initial state */}
-          {games.length === 0 && !loadingGames && !error && source !== "imported" && (
-            <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.7 }}>
-              <div style={{ fontSize: 64, marginBottom: 20 }}>{SOURCES[source].icon}</div>
-              <h2 style={{ margin: "0 0 10px 0" }}>{SOURCES[source].name}</h2>
-              <p style={{ margin: 0, opacity: 0.7 }}>{SOURCES[source].desc}</p>
+          {displayGames.length === 0 && !loadingGames && !error && source === "classics" && !selectedCategory && (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <p style={{ fontSize: 48, marginBottom: 16 }}>👑</p>
+              <p style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>Explore Classic Games</p>
+              <p style={{ color: theme.inkMuted }}>Select a player above or search</p>
             </div>
           )}
-        </div>
+        </main>
       )}
 
-      {/* IMPORT MODAL */}
-      {showImportModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
-          onClick={() => setShowImportModal(false)}>
-          <div style={{ background: "#1e1e2e", borderRadius: 16, padding: 24, width: "90%", maxWidth: 600, maxHeight: "80vh", overflow: "auto" }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ margin: 0 }}>Import PGN</h2>
-              <button onClick={() => setShowImportModal(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" }}>✕</button>
-            </div>
-            
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Upload PGN File</label>
-              <input type="file" accept=".pgn" onChange={handleFileUpload}
-                style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.2)", color: "#fff" }}
-              />
-            </div>
-            
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Or Paste PGN Text</label>
-              <textarea value={importText} onChange={(e) => setImportText(e.target.value)}
-                placeholder={`[Event "Example Game"]\n[White "Player 1"]\n[Black "Player 2"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 Nc6 ...`}
-                style={{ width: "100%", height: 200, padding: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.2)", color: "#fff", fontFamily: "monospace", fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
-              />
-            </div>
-            
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => setShowImportModal(false)}
-                style={{ flex: 1, padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button onClick={handleImportPGN} disabled={importLoading}
-                style={{ flex: 1, padding: 14, borderRadius: 8, border: "none", background: "#4CAF50", color: "#fff", cursor: "pointer", fontWeight: 600, opacity: importLoading ? 0.7 : 1 }}>
-                {importLoading ? "Importing..." : "Import Games"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AUTH MODAL */}
-      {showAuthModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
-          onClick={() => setShowAuthModal(false)}>
-          <div style={{ background: "#1e1e2e", borderRadius: 16, padding: 24, width: "90%", maxWidth: 400 }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ margin: 0 }}>{authMode === "login" ? "Sign In" : "Create Account"}</h2>
-              <button onClick={() => setShowAuthModal(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 24, cursor: "pointer" }}>✕</button>
-            </div>
-            
-            {!supabase ? (
-              <div style={{ textAlign: "center", padding: 20 }}>
-                <p style={{ opacity: 0.7 }}>Supabase not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable auth.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleAuth}>
-                {authError && (
-                  <div style={{ background: authError.includes("Check your email") ? "rgba(76,175,80,0.2)" : "rgba(244,67,54,0.2)", border: `1px solid ${authError.includes("Check your email") ? "#4CAF50" : "#f44336"}`, borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 14 }}>
-                    {authError}
-                  </div>
-                )}
-                
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Email</label>
-                  <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} required
-                    style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.2)", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-                
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: "block", marginBottom: 8, fontWeight: 600 }}>Password</label>
-                  <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} required minLength={6}
-                    style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.2)", color: "#fff", boxSizing: "border-box" }}
-                  />
-                </div>
-                
-                <button type="submit"
-                  style={{ width: "100%", padding: 14, borderRadius: 8, border: "none", background: "#4CAF50", color: "#fff", cursor: "pointer", fontWeight: 600, marginBottom: 12 }}>
-                  {authMode === "login" ? "Sign In" : "Create Account"}
-                </button>
-                
-                <div style={{ textAlign: "center", fontSize: 14 }}>
-                  {authMode === "login" ? (
-                    <span>Don't have an account? <button type="button" onClick={() => { setAuthMode("signup"); setAuthError(null); }} style={{ background: "none", border: "none", color: "#4CAF50", cursor: "pointer", fontWeight: 600 }}>Sign up</button></span>
-                  ) : (
-                    <span>Already have an account? <button type="button" onClick={() => { setAuthMode("login"); setAuthError(null); }} style={{ background: "none", border: "none", color: "#4CAF50", cursor: "pointer", fontWeight: 600 }}>Sign in</button></span>
-                  )}
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* GRANDMASTER - SELECT */}
-      {mode === "grandmaster" && grandmasterView === "select" && (
-        <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 16, padding: 24 }}>
+      {/* Play */}
+      {activeTab === "play" && grandmasterView === "select" && (
+        <main style={{ maxWidth: 1100, margin: "0 auto", padding: 32 }}>
+          <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 24 }}>
             <BotSelector selectedBotId={selectedBotId} onSelect={setSelectedBotId} onPlay={() => setGrandmasterView("playing")} />
           </div>
-        </div>
+        </main>
       )}
-
-      {/* GRANDMASTER - PLAYING */}
-      {mode === "grandmaster" && grandmasterView === "playing" && selectedBot && (
-        <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      {activeTab === "play" && grandmasterView === "playing" && selectedBot && (
+        <main style={{ maxWidth: 900, margin: "0 auto", padding: 32 }}>
           <PlayVsBot profile={selectedBot} onBack={() => setGrandmasterView("select")} />
+        </main>
+      )}
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: theme.card, borderRadius: 16, padding: 32, width: 400, border: `1px solid ${theme.border}`, position: "relative" }}>
+            <button onClick={() => setShowAuthModal(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: theme.inkMuted, cursor: "pointer", fontSize: 20 }}>×</button>
+            <h2 style={{ fontFamily: fonts.display, fontSize: 24, marginBottom: 24 }}>{authMode === "login" ? "Welcome Back" : "Create Account"}</h2>
+            <form onSubmit={authMode === "login" ? handleSignIn : handleSignUp}>
+              <input type="email" placeholder="Email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
+                style={{ width: "100%", padding: "14px", marginBottom: 12, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgAlt, color: theme.ink, fontSize: 14 }} />
+              <input type="password" placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
+                style={{ width: "100%", padding: "14px", marginBottom: 16, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgAlt, color: theme.ink, fontSize: 14 }} />
+              {authError && <p style={{ color: authError.includes("Check") ? theme.success : theme.error, fontSize: 13, marginBottom: 12 }}>{authError}</p>}
+              <button type="submit" style={{ width: "100%", padding: "14px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, marginBottom: 12 }}>
+                {authMode === "login" ? "Sign In" : "Create Account"}
+              </button>
+            </form>
+            <p style={{ textAlign: "center", fontSize: 13, color: theme.inkMuted }}>
+              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <button onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")} style={{ background: "none", border: "none", color: theme.accent, cursor: "pointer", fontWeight: 600 }}>
+                {authMode === "login" ? "Sign up" : "Sign in"}
+              </button>
+            </p>
+          </div>
         </div>
       )}
 
-      {/* ZONE MODE */}
-      {showZoneMode && (
-        <ZoneMode
-          initialGame={selectedGame}
-          onClose={() => setShowZoneMode(false)}
-        />
+      {/* Import Modal */}
+      {showImportModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: theme.card, borderRadius: 16, padding: 32, width: 500, border: `1px solid ${theme.border}` }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: 24, marginBottom: 16 }}>Import PGN</h2>
+            <textarea placeholder="Paste PGN..." value={importText} onChange={(e) => setImportText(e.target.value)}
+              style={{ width: "100%", height: 200, padding: 16, borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgAlt, color: theme.ink, fontSize: 13, fontFamily: fonts.mono, resize: "none", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setShowImportModal(false)} style={{ flex: 1, padding: "14px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleImportPGN} disabled={importLoading || !importText.trim()} style={{ flex: 1, padding: "14px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, opacity: importLoading ? 0.5 : 1 }}>
+                {importLoading ? "..." : "Import"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* Zone Mode */}
+      {showZoneMode && <ZoneMode initialGame={selectedGame} onClose={() => setShowZoneMode(false)} theme={theme} boardThemeId={boardThemeId} onBoardThemeChange={changeBoardTheme} />}
     </div>
   );
 }
