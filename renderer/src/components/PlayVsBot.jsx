@@ -398,6 +398,7 @@ export default function PlayVsBot({ profile, onBack }) {
 
         <Board
           chess={chess}
+          fen={fen}
           orientation={orientation}
           interactive={phase === "playing" && myTurn && !thinking}
           onMove={onPlayerMove}

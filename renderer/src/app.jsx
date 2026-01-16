@@ -140,7 +140,7 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   const theme = THEMES[themeId] || THEMES.dark;
-  const selectedBot = useMemo(() => personalities.find(p => p.id === selectedBotId), [selectedBotId]);
+  const selectedBot = personalities[selectedBotId] || personalities.carlsen;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS

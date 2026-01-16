@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { Chess } from "chess.js";
 
 /**
  * Professional Chess Board with CDN-loaded pieces
@@ -36,7 +37,8 @@ function indexToSquare(row, col) {
 }
 
 export default function Board({
-  chess,
+  chess: chessProp,
+  fen: fenProp,
   orientation = "w",
   interactive = false,
   onMove = null,
@@ -44,18 +46,31 @@ export default function Board({
   disabled = false,
   size = 480
 }) {
+  // Support either passing a chess instance or a FEN string
+  const [internalChess] = useState(() => new Chess());
+  
+  // If fen prop is provided, use internal chess with that position
+  // If chess prop is provided, use it directly
+  const chess = useMemo(() => {
+    if (fenProp) {
+      try { internalChess.load(fenProp); } catch {}
+      return internalChess;
+    }
+    return chessProp || internalChess;
+  }, [fenProp, chessProp, internalChess]);
+
   const [selected, setSelected] = useState(null);
   const board = chess.board();
   const turn = chess.turn();
   const inCheck = chess.inCheck();
   
-  useEffect(() => { setSelected(null); }, [chess.fen()]);
+  useEffect(() => { setSelected(null); }, [fenProp, chessProp?.fen?.()]);
 
   const legalMoves = useMemo(() => {
     if (!selected || !interactive || disabled) return [];
     try { return chess.moves({ square: selected, verbose: true }); }
     catch (e) { return []; }
-  }, [chess, selected, interactive, disabled]);
+  }, [chess, selected, interactive, disabled, fenProp]);
 
   const legalTargets = useMemo(() => new Set(legalMoves.map(m => m.to)), [legalMoves]);
 

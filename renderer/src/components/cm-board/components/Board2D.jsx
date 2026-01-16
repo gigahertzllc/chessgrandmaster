@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import "./board2d.css";
 import { allSquares, isDarkSquare } from "../utils/squares";
 import { getBoardTheme } from "../themes/boardThemes";
@@ -7,9 +7,11 @@ import Piece2D from "./Piece2D";
 /**
  * Premium 2D board.
  * Parent owns chess engine state (e.g., chess.js).
+ * Pass `fen` prop alongside `chess` to trigger re-renders when position changes.
  */
 export default function Board2D({
   chess,
+  fen, // Used to trigger re-renders when position changes
   size = 520,
   orientation = "w",
   interactive = true,
@@ -22,6 +24,7 @@ export default function Board2D({
   const theme = getBoardTheme(themeId);
   const [selected, setSelected] = useState(null);
 
+  // Re-calculate when fen changes
   const squares = useMemo(() => allSquares(orientation), [orientation]);
 
   const legalMoves = useMemo(() => {
@@ -31,7 +34,7 @@ export default function Board2D({
     } catch {
       return [];
     }
-  }, [selected, chess]);
+  }, [selected, chess, fen]);
 
   const checkSquare = useMemo(() => {
     // chess.js doesn't expose check square directly; this is a best-effort highlight:
@@ -47,7 +50,12 @@ export default function Board2D({
     } catch {
       return null;
     }
-  }, [chess]);
+  }, [chess, fen]);
+
+  // Clear selection when position changes
+  useEffect(() => {
+    setSelected(null);
+  }, [fen]);
 
   const handleSquareClick = (sq) => {
     if (!interactive) return;

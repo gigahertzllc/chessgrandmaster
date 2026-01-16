@@ -22,6 +22,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
 
   const [mode, setMode] = useState(initialLesson ? "lesson" : initialGame ? "game" : "browse");
   const [chess] = useState(() => new Chess());
+  const [fen, setFen] = useState(() => new Chess().fen());
   const [moves, setMoves] = useState([]);
   const [moveIndex, setMoveIndex] = useState(0);
   const [orientation, setOrientation] = useState("w");
@@ -55,6 +56,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
       setMoves(temp.history());
       setMoveIndex(0);
       chess.reset();
+      setFen(chess.fen());
       setLastMove(null);
     } catch (e) { console.error(e); }
   }, [chess]);
@@ -67,6 +69,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
     for (let i = 0; i < clamped; i++) {
       try { const m = chess.move(moves[i]); if (i === clamped - 1) last = { from: m.from, to: m.to }; } catch { break; }
     }
+    setFen(chess.fen());
     setLastMove(last);
   }, [moves, chess]);
 
@@ -116,7 +119,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
       byWhite: Object.entries(init.b).flatMap(([t, c]) => Array(c - cur.b[t]).fill(t)),
       byBlack: Object.entries(init.w).flatMap(([t, c]) => Array(c - cur.w[t]).fill(t))
     };
-  }, [moveIndex, chess]);
+  }, [fen, chess]);
 
   const selectLesson = (id) => { setCurrentLesson(getLesson(id)); setCurrentGame(null); };
 
@@ -286,7 +289,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
                 <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2 }}>
                   {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
-                <Board2D chess={chess} size={480} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
+                <Board2D chess={chess} fen={fen} size={480} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
                 {/* Captured by white */}
                 <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2 }}>
                   {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
