@@ -233,9 +233,9 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
 
         {/* Game/Lesson View */}
         {(mode === "game" || mode === "lesson") && (
-          <>
+          <div style={{ display: "flex", gap: 20, flex: 1, overflow: "hidden", maxWidth: 1400, margin: "0 auto" }}>
             {/* Left - Info */}
-            <div style={{ width: 340, ...glassCard, padding: 20, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ width: 300, minWidth: 280, ...glassCard, padding: 20, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               {currentLesson && (
                 <>
                   <div style={{ marginBottom: 16 }}>
@@ -298,15 +298,15 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
             </div>
 
             {/* Center - Board */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ ...glassCard, padding: 20 }}>
+            <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 400, maxWidth: 600 }}>
+              <div style={{ ...glassCard, padding: 16 }}>
                 {/* Captured by black */}
-                <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2 }}>
+                <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2, justifyContent: "center" }}>
                   {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
-                <Board2D chess={chess} fen={fen} size={480} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
+                <Board2D chess={chess} fen={fen} size={420} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
                 {/* Captured by white */}
-                <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2 }}>
+                <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, justifyContent: "center" }}>
                   {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
               </div>
@@ -338,31 +338,52 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
             </div>
 
             {/* Right - Moves */}
-            <div style={{ width: 260, ...glassCard, padding: 20, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
-              <div style={{ fontSize: 10, color: theme.inkMuted, letterSpacing: "0.1em", marginBottom: 12, fontWeight: 600 }}>MOVES</div>
-              <div style={{ flex: 1, overflowY: "auto" }}>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {moves.map((move, idx) => (
-                    <span key={idx} onClick={() => { goToMove(idx + 1); setAutoPlay(false); }}
-                      style={{
-                        padding: "6px 10px", borderRadius: 6,
-                        background: idx + 1 === moveIndex ? theme.accent : theme.accentSoft,
-                        color: idx + 1 === moveIndex ? theme.bg : theme.ink,
-                        cursor: "pointer", fontSize: 12, transition,
-                      }}>
-                      {idx % 2 === 0 && <span style={{ opacity: 0.5, marginRight: 3 }}>{Math.floor(idx / 2) + 1}.</span>}{move}
-                    </span>
-                  ))}
-                </div>
+            <div style={{ width: 220, minWidth: 200, ...glassCard, padding: 16, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: theme.inkMuted, letterSpacing: "0.1em", fontWeight: 600 }}>MOVES</div>
+                <div style={{ fontSize: 11, color: theme.inkMuted }}>{moveIndex}/{moves.length}</div>
               </div>
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${theme.border}`, fontSize: 10, color: theme.inkMuted, lineHeight: 1.8 }}>
+              <div style={{ flex: 1, overflowY: "auto", background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 8 }}>
+                {moves.length === 0 ? (
+                  <div style={{ textAlign: "center", color: theme.inkMuted, padding: 16, fontSize: 12 }}>No moves yet</div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: "2px 4px", fontSize: 12 }}>
+                    {Array.from({ length: Math.ceil(moves.length / 2) }).map((_, i) => (
+                      <React.Fragment key={i}>
+                        <span style={{ color: theme.inkMuted, padding: "4px 6px", textAlign: "right" }}>{i + 1}.</span>
+                        <span
+                          onClick={() => { goToMove(i * 2 + 1); setAutoPlay(false); }}
+                          style={{
+                            padding: "4px 6px", borderRadius: 4, cursor: "pointer",
+                            background: moveIndex === i * 2 + 1 ? theme.accent : "transparent",
+                            color: moveIndex === i * 2 + 1 ? theme.bg : theme.ink,
+                          }}>
+                          {moves[i * 2]}
+                        </span>
+                        {moves[i * 2 + 1] ? (
+                          <span
+                            onClick={() => { goToMove(i * 2 + 2); setAutoPlay(false); }}
+                            style={{
+                              padding: "4px 6px", borderRadius: 4, cursor: "pointer",
+                              background: moveIndex === i * 2 + 2 ? theme.accent : "transparent",
+                              color: moveIndex === i * 2 + 2 ? theme.bg : theme.ink,
+                            }}>
+                            {moves[i * 2 + 1]}
+                          </span>
+                        ) : <span />}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${theme.border}`, fontSize: 9, color: theme.inkMuted, lineHeight: 1.8 }}>
                 <div>← → Navigate</div>
                 <div>↑ ↓ Start/End</div>
                 <div>Space Auto-play</div>
                 <div>F Flip • Esc Exit</div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 {
-  "name": "chessmaster-2026",
-  "version": "0.1.0",
+  "name": "chessgrandmaster-2026",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "scripts": {

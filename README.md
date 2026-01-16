@@ -1,6 +1,8 @@
-# Chessmaster 2026
+# ChessGrandmaster 2026
 
-A chess training app with game library and AI opponents.
+A premium chess training app with game library, Zone Mode analysis, and AI opponents.
+
+**Current Version: 1.0.0**
 
 ## Features
 

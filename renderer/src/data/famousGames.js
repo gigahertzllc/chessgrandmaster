@@ -1,7 +1,10 @@
 /**
  * Famous Chess Games Collection
  * Historical classics + Modern tournament games
+ * Enhanced with Masters Database for Carlsen, Fischer, and Morphy
  */
+
+import { getAllMasterGames, searchMasterGames } from './mastersDatabase.js';
 
 export const FAMOUS_GAMES = [
   // ═══════════════════════════════════════════════════════════════════════════
@@ -403,34 +406,47 @@ export const FAMOUS_GAMES = [
 
 // Group games by category for easy filtering
 export const GAME_CATEGORIES = {
-  morphy: { name: "Paul Morphy", era: "1837-1884", icon: "👑" },
+  morphy: { name: "Paul Morphy", era: "1837-1884", icon: "👑", count: "12+ games" },
   steinitz: { name: "Wilhelm Steinitz", era: "1836-1900", icon: "🎩" },
   lasker: { name: "Emanuel Lasker", era: "1868-1941", icon: "🧠" },
   capablanca: { name: "Jose Raul Capablanca", era: "1888-1942", icon: "🎭" },
   alekhine: { name: "Alexander Alekhine", era: "1892-1946", icon: "⚔️" },
   tal: { name: "Mikhail Tal", era: "1936-1992", icon: "🔮" },
-  fischer: { name: "Bobby Fischer", era: "1943-2008", icon: "🦅" },
+  fischer: { name: "Bobby Fischer", era: "1943-2008", icon: "🦅", count: "12+ games" },
   kasparov: { name: "Garry Kasparov", era: "1963-", icon: "🔥" },
   karpov: { name: "Anatoly Karpov", era: "1951-", icon: "🐍" },
   kramnik: { name: "Vladimir Kramnik", era: "1975-", icon: "🏰" },
   anand: { name: "Viswanathan Anand", era: "1969-", icon: "🐅" },
-  carlsen: { name: "Magnus Carlsen", era: "1990-", icon: "🧊" },
+  carlsen: { name: "Magnus Carlsen", era: "1990-", icon: "🧊", count: "12+ games" },
   caruana: { name: "Fabiano Caruana", era: "1992-", icon: "🇺🇸" },
   ding: { name: "Ding Liren", era: "1992-", icon: "🐉" },
   modern: { name: "Modern Classics", era: "1990+", icon: "⭐" }
 };
 
+// Combine famous games with masters database (avoiding duplicates by id)
+function getAllGames() {
+  const masterGames = getAllMasterGames();
+  const existingIds = new Set(FAMOUS_GAMES.map(g => g.id));
+  const newMasterGames = masterGames.filter(g => !existingIds.has(g.id));
+  return [...FAMOUS_GAMES, ...newMasterGames];
+}
+
 export function getGamesByCategory(category) {
-  return FAMOUS_GAMES.filter(g => g.category === category);
+  return getAllGames().filter(g => g.category === category);
 }
 
 export function searchGames(query) {
   const q = query.toLowerCase();
-  return FAMOUS_GAMES.filter(g => 
+  return getAllGames().filter(g => 
     g.white.toLowerCase().includes(q) ||
     g.black.toLowerCase().includes(q) ||
     g.title?.toLowerCase().includes(q) ||
     g.event?.toLowerCase().includes(q) ||
     g.description?.toLowerCase().includes(q)
   );
+}
+
+// Export combined games list
+export function getAllFamousGames() {
+  return getAllGames();
 }
