@@ -143,6 +143,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
       <header style={{
         ...glassCard, borderRadius: 0, borderTop: "none", borderLeft: "none", borderRight: "none",
         padding: "12px 24px", display: "flex", justifyContent: "space-between", alignItems: "center",
+        position: "relative", zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <button onClick={onClose} style={{
@@ -161,23 +162,37 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
           }}>{musicEnabled ? "🎵" : "🔇"}</button>
           {musicEnabled && <input type="range" min="0" max="1" step="0.1" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} style={{ width: 60 }} />}
 
+          {/* Board Theme Selector */}
           <div style={{ position: "relative" }}>
             <button onClick={() => setShowThemes(!showThemes)} style={{
-              background: theme.accentSoft, border: "none", borderRadius: 8,
-              color: theme.ink, padding: "8px 14px", cursor: "pointer", fontSize: 13,
-            }}>🎨 Board</button>
+              background: showThemes ? theme.accent : theme.accentSoft, 
+              border: "none", borderRadius: 8,
+              color: showThemes ? theme.bg : theme.ink, 
+              padding: "8px 14px", cursor: "pointer", fontSize: 13,
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              🎨 Board
+              <span style={{ fontSize: 10 }}>{showThemes ? "▲" : "▼"}</span>
+            </button>
             {showThemes && (
               <div style={{
-                position: "absolute", top: "100%", right: 0, marginTop: 8,
-                ...glassCard, padding: 8, width: 260, maxHeight: 300, overflowY: "auto", zIndex: 3000,
+                position: "absolute", top: "calc(100% + 8px)", right: 0,
+                background: theme.card, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                border: `1px solid ${theme.border}`, borderRadius: 12,
+                padding: 8, width: 280, maxHeight: 350, overflowY: "auto", 
+                zIndex: 9999, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
               }}>
+                <div style={{ fontSize: 10, color: theme.inkMuted, padding: "8px 12px", letterSpacing: "0.1em" }}>SELECT BOARD THEME</div>
                 {listBoardThemes().map(t => (
                   <button key={t.id} onClick={() => { handleBoardThemeChange(t.id); setShowThemes(false); }}
                     style={{
-                      width: "100%", padding: "10px 12px", border: "none", borderRadius: 8,
+                      width: "100%", padding: "12px", border: "none", borderRadius: 8,
                       background: boardThemeId === t.id ? theme.accentSoft : "transparent",
-                      color: theme.ink, textAlign: "left", cursor: "pointer", fontSize: 12, marginBottom: 4, transition,
-                    }}>{t.name}</button>
+                      color: theme.ink, textAlign: "left", cursor: "pointer", fontSize: 13, marginBottom: 2, transition,
+                      fontWeight: boardThemeId === t.id ? 600 : 400,
+                    }}>
+                    {boardThemeId === t.id && "✓ "}{t.name}
+                  </button>
                 ))}
               </div>
             )}
@@ -186,7 +201,7 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
       </header>
 
       {/* Main */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 24, gap: 24 }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 24, gap: 24, position: "relative", zIndex: 1 }}>
         {/* Browse */}
         {mode === "browse" && (
           <div style={{ flex: 1, overflowY: "auto" }}>
@@ -323,8 +338,8 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
             </div>
 
             {/* Right - Moves */}
-            <div style={{ width: 260, ...glassCard, padding: 20, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <div style={{ fontSize: 10, color: theme.inkMuted, letterSpacing: "0.1em", marginBottom: 12 }}>MOVES</div>
+            <div style={{ width: 260, ...glassCard, padding: 20, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
+              <div style={{ fontSize: 10, color: theme.inkMuted, letterSpacing: "0.1em", marginBottom: 12, fontWeight: 600 }}>MOVES</div>
               <div style={{ flex: 1, overflowY: "auto" }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {moves.map((move, idx) => (

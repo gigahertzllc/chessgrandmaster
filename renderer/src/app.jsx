@@ -530,7 +530,7 @@ export default function App() {
           {error && <p style={{ color: theme.error }}>{error}</p>}
 
           {displayGames.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 400px 300px", gap: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 420px 320px", gap: 24 }}>
               {/* Games List */}
               <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
                 <div style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted }}>
@@ -555,11 +555,11 @@ export default function App() {
               </div>
 
               {/* Board */}
-              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 20 }}>
+              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 16 }}>
                 <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2, alignItems: "center" }}>
                   {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
-                <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} />
+                <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} size={380} />
                 <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, alignItems: "center" }}>
                   {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
