@@ -218,10 +218,13 @@ export default function App() {
 
   const loadImportedGames = async (userId) => {
     try {
-      const games = await db.getImportedGames(userId);
-      setImportedGames(games.map(g => ({
-        id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn
-      })));
+      const { data: games, error } = await db.getImportedGames(userId);
+      if (error) throw error;
+      if (games) {
+        setImportedGames(games.map(g => ({
+          id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn
+        })));
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -344,8 +347,11 @@ export default function App() {
         return { white: h.White || "?", black: h.Black || "?", result: h.Result || "*", date: h.Date, event: h.Event || "Imported", pgn };
       }).filter(Boolean);
       if (!parsed.length) throw new Error("No valid PGN");
-      const saved = await db.saveImportedGames(user.id, parsed);
-      setImportedGames(prev => [...saved.map(g => ({ id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn })), ...prev]);
+      const { data: saved, error } = await db.saveImportedGames(user.id, parsed);
+      if (error) throw error;
+      if (saved) {
+        setImportedGames(prev => [...saved.map(g => ({ id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn })), ...prev]);
+      }
       setShowImportModal(false); setImportText("");
     } catch (e) { alert(e.message); }
     setImportLoading(false);
@@ -353,7 +359,8 @@ export default function App() {
 
   const deleteImportedGame = async (id) => {
     try {
-      await db.deleteImportedGame(id);
+      const { error } = await db.deleteImportedGame(id);
+      if (error) throw error;
       setImportedGames(prev => prev.filter(g => g.id !== id));
       if (selectedGame?.id === id) setSelectedGame(null);
     } catch (e) { alert(e.message); }
