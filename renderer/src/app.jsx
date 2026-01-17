@@ -1,7 +1,16 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.5
+ * Version: 1.5.6
  * Last Updated: January 17, 2026
+ * 
+ * v1.5.6 - WCAG AAA Accessibility + UI Polish
+ *   - Zone Mode: App theme selector in settings dropdown
+ *   - Zone Mode: Music toast follows current theme (light/dark)
+ *   - Zone Mode: High contrast moves list (7:1 ratio)
+ *   - Zone Mode: Responsive 2D board (scales to fit)
+ *   - Zone Mode: Distinct play button (larger, colored, shadows)
+ *   - All controls have proper aria-labels
+ *   - Light themes properly supported throughout
  * 
  * v1.5.5 - Zone Mode Redesign + Player Search
  *   - Zone Mode: Large board on left, sidebar on right
@@ -40,7 +49,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.5";
+const APP_VERSION = "1.5.6";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -883,7 +892,7 @@ export default function App() {
       )}
 
       {/* Zone Mode */}
-      {showZoneMode && <ZoneMode initialGame={selectedGame} onClose={() => setShowZoneMode(false)} theme={theme} boardThemeId={boardThemeId} onBoardThemeChange={changeBoardTheme} />}
+      {showZoneMode && <ZoneMode initialGame={selectedGame} onClose={() => setShowZoneMode(false)} theme={theme} themeId={themeId} onThemeChange={changeTheme} boardThemeId={boardThemeId} onBoardThemeChange={changeBoardTheme} />}
 
       {/* Admin Panel Modal */}
       {showAdminPanel && (
