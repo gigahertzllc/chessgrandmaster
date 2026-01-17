@@ -3,12 +3,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { allSquares, squareToFR, isDarkSquare } from "../utils/squares";
 import { getBoardTheme } from "../themes/boardThemes";
-import { getPieceSet } from "../themes/pieceSets";
+import { getPieceSet, getGeometryStyle } from "../themes/pieceSets";
 
 /**
- * Premium 3D board with procedural Staunton-style pieces, swappable materials, and smooth animations.
- *
- * Parent owns chess engine state (e.g., chess.js).
+ * Premium 3D board with procedural pieces, swappable materials/geometry, and smooth animations.
  *
  * Props
  * - chess: engine instance
@@ -18,8 +16,8 @@ import { getPieceSet } from "../themes/pieceSets";
  * - onMove: ({from,to,promotion}) => void
  * - lastMove: {from,to} | null
  * - themeId: board theme (affects square colors + accents)
- * - pieceSetId: 3D piece material set
- * - cameraPreset: "classic34" | "top" (default classic34)
+ * - pieceSetId: 3D piece material set (also determines geometry style)
+ * - cameraPreset: "straight" | "angled" | "top" (default straight)
  * - animations: boolean (default true)
  */
 export default function Board3D({
@@ -31,7 +29,7 @@ export default function Board3D({
   lastMove = null,
   themeId = "carrara_gold",
   pieceSetId = "classic_ebony_ivory",
-  cameraPreset = "classic34",
+  cameraPreset = "straight",
   animations = true
 }) {
   const mountRef = useRef(null);
@@ -40,6 +38,7 @@ export default function Board3D({
 
   const theme = useMemo(() => getBoardTheme(themeId), [themeId]);
   const setDef = useMemo(() => getPieceSet(pieceSetId), [pieceSetId]);
+  const geoStyle = useMemo(() => getGeometryStyle(setDef.geometryStyle || "staunton"), [setDef]);
 
   // Animation registry: key -> {mesh, from, to, t0, durMs, lift}
   const animRef = useRef(new Map());
@@ -67,15 +66,21 @@ export default function Board3D({
     // Camera
     const camera = new THREE.PerspectiveCamera(45, currentSize.width / currentSize.height, 0.1, 200);
     const setCamera = () => {
+      const sign = orientation === "w" ? 1 : -1;
+      
       if (cameraPreset === "top") {
+        // Bird's eye view
         camera.position.set(0, 18, 0.01);
         camera.lookAt(0, 0, 0);
-        return;
+      } else if (cameraPreset === "angled") {
+        // Classic 3/4 diagonal view
+        camera.position.set(9 * sign, 10, 9 * sign);
+        camera.lookAt(0, 0, 0);
+      } else {
+        // "straight" - Default: Straight on from white/black side
+        camera.position.set(0, 8, 14 * sign);
+        camera.lookAt(0, 0, 0);
       }
-      // classic 3/4 view
-      const sign = orientation === "w" ? 1 : -1;
-      camera.position.set(9 * sign, 10, 9 * sign);
-      camera.lookAt(0, 0, 0);
     };
     setCamera();
 
@@ -189,7 +194,7 @@ export default function Board3D({
     const matWhite = mkMat(setDef.white);
     const matBlack = mkMat(setDef.black);
 
-    // Procedural Staunton-ish geometry builder
+    // Procedural geometry builder using style profiles
     const cacheGeo = new Map(); // key -> BufferGeometry
     const mkLathe = (profile, segments = 48) => {
       const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
@@ -214,20 +219,20 @@ export default function Board3D({
     };
 
     const getPieceGeo = (type) => {
-      if (cacheGeo.has(type)) return cacheGeo.get(type);
+      const cacheKey = `${geoStyle.id}_${type}`;
+      if (cacheGeo.has(cacheKey)) return cacheGeo.get(cacheKey);
 
-      let geo;
-      // Profiles are [radius, y]
-      if (type === "p") geo = mkLathe([[0.0,0.0],[0.45,0.0],[0.42,0.12],[0.28,0.22],[0.30,0.46],[0.22,0.62],[0.24,0.72],[0.18,0.86],[0.0,0.86]]);
-      else if (type === "r") geo = mkLathe([[0.0,0.0],[0.50,0.0],[0.46,0.14],[0.32,0.22],[0.36,0.55],[0.30,0.82],[0.32,0.92],[0.36,1.04],[0.0,1.04]]);
-      else if (type === "b") geo = mkLathe([[0.0,0.0],[0.50,0.0],[0.45,0.14],[0.30,0.24],[0.34,0.62],[0.26,0.86],[0.30,1.04],[0.18,1.22],[0.0,1.22]]);
-      else if (type === "n") geo = mkLathe([[0.0,0.0],[0.50,0.0],[0.45,0.14],[0.30,0.22],[0.34,0.60],[0.26,0.86],[0.28,1.00],[0.20,1.12],[0.0,1.12]]);
-      else if (type === "q") geo = mkLathe([[0.0,0.0],[0.52,0.0],[0.48,0.14],[0.30,0.24],[0.36,0.68],[0.30,0.96],[0.34,1.18],[0.22,1.40],[0.0,1.40]]);
-      else geo = mkLathe([[0.0,0.0],[0.55,0.0],[0.50,0.15],[0.32,0.25],[0.40,0.72],[0.34,1.02],[0.40,1.26],[0.30,1.48],[0.0,1.48]]); // king
+      // Get profile from geometry style
+      const profile = geoStyle.profiles[type];
+      if (!profile) {
+        console.warn(`No profile for piece type ${type} in style ${geoStyle.id}`);
+        return new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      }
 
-      geo.scale(0.72, 0.72, 0.72); // fit squares nicely
+      const geo = mkLathe(profile);
+      geo.scale(geoStyle.scale, geoStyle.scale, geoStyle.scale);
       geo.computeBoundingBox();
-      cacheGeo.set(type, geo);
+      cacheGeo.set(cacheKey, geo);
       return geo;
     };
 

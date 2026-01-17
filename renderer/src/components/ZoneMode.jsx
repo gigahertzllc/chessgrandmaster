@@ -3,6 +3,7 @@ import { Chess } from "chess.js";
 import Board2D from "./cm-board/components/Board2D.jsx";
 import Board3D from "./cm-board/components/Board3D.jsx";
 import { listBoardThemes } from "./cm-board/themes/boardThemes.js";
+import { listPieceSets } from "./cm-board/themes/pieceSets.js";
 import { getLesson, getAllBooks, getLessonsByBook } from "../data/lessons.js";
 import { getAudioManager } from "../audio/AudioManager.js";
 
@@ -14,6 +15,13 @@ const APP_THEMES = [
   { id: "light", name: "Light" },
   { id: "sepia", name: "Sepia" },
   { id: "midnight", name: "Midnight" }
+];
+
+// Camera presets for 3D
+const CAMERA_PRESETS = [
+  { id: "straight", name: "Straight On" },
+  { id: "angled", name: "3/4 Angled" },
+  { id: "top", name: "Top Down" }
 ];
 
 export default function ZoneMode({ 
@@ -55,6 +63,10 @@ export default function ZoneMode({
   
   // 2D/3D board view toggle
   const [boardView, setBoardView] = useState("2d");
+  
+  // 3D specific settings
+  const [pieceSetId, setPieceSetId] = useState("classic_ebony_ivory");
+  const [cameraPreset, setCameraPreset] = useState("straight");
   
   // Responsive board size
   const [boardSize, setBoardSize] = useState(580);
@@ -450,6 +462,51 @@ export default function ZoneMode({
               </select>
             </div>
 
+            {/* 3D Settings - Only show when in 3D mode */}
+            {boardView === "3d" && (
+              <>
+                {/* Piece Set */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: theme.ink, marginBottom: 8, fontWeight: 500 }}>3D Piece Set</div>
+                  <select 
+                    value={pieceSetId} 
+                    onChange={(e) => setPieceSetId(e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px",
+                      background: isLightTheme ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.08)",
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 8, color: theme.ink, fontSize: 13,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {listPieceSets().map(s => (
+                      <option key={s.id} value={s.id} style={{ background: theme.bg, color: theme.ink }}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Camera Angle */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: theme.ink, marginBottom: 8, fontWeight: 500 }}>Camera Angle</div>
+                  <select 
+                    value={cameraPreset} 
+                    onChange={(e) => setCameraPreset(e.target.value)}
+                    style={{
+                      width: "100%", padding: "10px 12px",
+                      background: isLightTheme ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.08)",
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 8, color: theme.ink, fontSize: 13,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {CAMERA_PRESETS.map(c => (
+                      <option key={c.id} value={c.id} style={{ background: theme.bg, color: theme.ink }}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
             {/* Music Toggle */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: theme.ink, marginBottom: 8, fontWeight: 500 }}>Music</div>
@@ -489,14 +546,15 @@ export default function ZoneMode({
             background: isLightTheme ? "#e8e8e6" : "#0a0a0b",
           }}>
             <Board3D 
-              key={`3d-${fen}`}
+              key={`3d-${fen}-${pieceSetId}`}
               chess={chess} 
               size="full"
               orientation={orientation} 
               interactive={false} 
               lastMove={lastMove} 
               themeId={boardThemeId}
-              cameraPreset="classic34"
+              pieceSetId={pieceSetId}
+              cameraPreset={cameraPreset}
               animations={true}
             />
           </div>

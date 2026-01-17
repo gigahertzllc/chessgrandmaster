@@ -1,7 +1,15 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.6
+ * Version: 1.5.7
  * Last Updated: January 17, 2026
+ * 
+ * v1.5.7 - Multiple 3D Piece Sets + Camera Options
+ *   - 7 piece set styles: Ebony/Ivory, Modern Matte, Boxwood/Rosewood,
+ *     Marble, Gold/Silver, Jade/Obsidian, Crystal Glass
+ *   - 3 geometry styles: Staunton Classic, Modern Minimal, Baroque Ornate
+ *   - 3 camera presets: Straight On (default), 3/4 Angled, Top Down
+ *   - Default view: Straight on from white's side
+ *   - Settings panel shows piece set/camera when in 3D mode
  * 
  * v1.5.6 - WCAG AAA Accessibility + UI Polish
  *   - Zone Mode: App theme selector in settings dropdown
@@ -49,7 +57,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.6";
+const APP_VERSION = "1.5.7";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
