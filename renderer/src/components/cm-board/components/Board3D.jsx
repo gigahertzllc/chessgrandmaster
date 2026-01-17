@@ -12,7 +12,7 @@ import { getPieceSet } from "../themes/pieceSets";
  *
  * Props
  * - chess: engine instance
- * - size: px
+ * - size: px number OR "full" for fullscreen container fill
  * - orientation: "w" | "b"
  * - interactive: boolean
  * - onMove: ({from,to,promotion}) => void
@@ -36,6 +36,7 @@ export default function Board3D({
 }) {
   const mountRef = useRef(null);
   const rafRef = useRef(null);
+  const isFullscreen = size === "full";
 
   const theme = useMemo(() => getBoardTheme(themeId), [themeId]);
   const setDef = useMemo(() => getPieceSet(pieceSetId), [pieceSetId]);
@@ -48,12 +49,23 @@ export default function Board3D({
   useEffect(() => {
     if (!mountRef.current) return;
 
+    // Get initial size
+    const getSize = () => {
+      if (isFullscreen) {
+        const rect = mountRef.current.getBoundingClientRect();
+        return { width: rect.width || window.innerWidth, height: rect.height || window.innerHeight };
+      }
+      return { width: size, height: size };
+    };
+
+    let currentSize = getSize();
+
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x141416);
+    scene.background = new THREE.Color(0x0a0a0b);
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+    const camera = new THREE.PerspectiveCamera(45, currentSize.width / currentSize.height, 0.1, 200);
     const setCamera = () => {
       if (cameraPreset === "top") {
         camera.position.set(0, 18, 0.01);
@@ -70,7 +82,7 @@ export default function Board3D({
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(size, size);
+    renderer.setSize(currentSize.width, currentSize.height);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -422,13 +434,20 @@ export default function Board3D({
     mountRef.current.innerHTML = "";
     mountRef.current.appendChild(renderer.domElement);
 
-    // Resize observer (keeps aspect correct)
+    // Resize observer (keeps aspect correct, handles fullscreen)
     const ro = new ResizeObserver(() => {
       const el = mountRef.current;
       if (!el) return;
-      const px = size;
-      renderer.setSize(px, px);
-      camera.aspect = 1;
+      if (isFullscreen) {
+        const rect = el.getBoundingClientRect();
+        const w = rect.width || window.innerWidth;
+        const h = rect.height || window.innerHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+      } else {
+        renderer.setSize(size, size);
+        camera.aspect = 1;
+      }
       camera.updateProjectionMatrix();
     });
     ro.observe(mountRef.current);
@@ -486,7 +505,7 @@ export default function Board3D({
       matBlack.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size, orientation, cameraPreset, pieceSetId, themeId]);
+  }, [size, isFullscreen, orientation, cameraPreset, pieceSetId, themeId]);
 
   // Respond to chess state changes: rebuild meshes and animate differences.
   // Parent app causes rerender by passing updated chess object (same instance is fine).
@@ -504,5 +523,13 @@ export default function Board3D({
   // For a complete integration, parent should supply a `key` prop that changes when position changes
   // OR we can extend this module further to keep scene refs. For now, the initial mount is complete,
   // and re-renders are supported by remounting Board3D (see README).
-  return <div ref={mountRef} style={{ width: size, height: size }} />;
+  return (
+    <div 
+      ref={mountRef} 
+      style={isFullscreen 
+        ? { width: '100%', height: '100%', position: 'absolute', inset: 0 } 
+        : { width: size, height: size }
+      } 
+    />
+  );
 }

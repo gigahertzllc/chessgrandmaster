@@ -264,15 +264,17 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
         flex: "1 1 auto",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 32,
+        alignItems: boardView === "3d" ? "stretch" : "center",
+        justifyContent: boardView === "3d" ? "stretch" : "center",
+        padding: boardView === "3d" ? 0 : 32,
         position: "relative",
+        overflow: "hidden",
       }}>
         {/* Close button */}
         <button onClick={onClose} style={{
-          position: "absolute", top: 20, left: 20,
-          padding: "10px 16px", background: "rgba(255,255,255,0.05)", 
+          position: "absolute", top: 20, left: 20, zIndex: 50,
+          padding: "10px 16px", background: "rgba(0,0,0,0.6)", 
+          backdropFilter: "blur(10px)",
           border: `1px solid ${theme.border}`,
           borderRadius: 8, color: theme.ink, cursor: "pointer", fontSize: 13,
           display: "flex", alignItems: "center", gap: 8,
@@ -283,8 +285,9 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
 
         {/* Settings button */}
         <button onClick={() => setShowSettings(!showSettings)} style={{
-          position: "absolute", top: 20, right: 20,
-          padding: "10px 14px", background: showSettings ? theme.accentSoft : "rgba(255,255,255,0.05)", 
+          position: "absolute", top: 20, right: 20, zIndex: 50,
+          padding: "10px 14px", background: showSettings ? theme.accentSoft : "rgba(0,0,0,0.6)", 
+          backdropFilter: "blur(10px)",
           border: `1px solid ${theme.border}`,
           borderRadius: 8, color: theme.ink, cursor: "pointer", fontSize: 14,
           transition
@@ -295,13 +298,13 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
         {/* Settings Panel */}
         {showSettings && (
           <div style={{
-            position: "absolute", top: 70, right: 20,
-            background: theme.card,
+            position: "absolute", top: 70, right: 20, zIndex: 100,
+            background: "rgba(20,20,22,0.95)",
+            backdropFilter: "blur(20px)",
             border: `1px solid ${theme.border}`,
             borderRadius: 12,
             padding: 16,
             minWidth: 200,
-            zIndex: 100,
           }}>
             <div style={{ fontSize: 11, color: theme.inkMuted, marginBottom: 12, letterSpacing: "0.05em" }}>SETTINGS</div>
             
@@ -370,73 +373,89 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
           </div>
         )}
 
-        {/* Captured pieces - Black */}
-        <div style={{ 
-          height: 28, marginBottom: 12, 
-          display: "flex", gap: 2, alignItems: "center",
-          minWidth: 580
-        }}>
-          {capturedPieces.byBlack.map((p, i) => (
-            <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" 
-              style={{ width: 22, height: 22, opacity: 0.6 }} />
-          ))}
-        </div>
-
-        {/* THE BOARD */}
-        <div style={{
-          background: "rgba(0,0,0,0.3)",
-          borderRadius: 4,
-          padding: 4,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-        }}>
-          {boardView === "3d" ? (
+        {/* 3D MODE - Fullscreen Canvas */}
+        {boardView === "3d" ? (
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            background: "#0a0a0b",
+          }}>
             <Board3D 
               key={`3d-${fen}`}
               chess={chess} 
-              size={580} 
+              size="full"
               orientation={orientation} 
               interactive={false} 
               lastMove={lastMove} 
               themeId={boardThemeId}
-              cameraPreset="top"
+              cameraPreset="classic34"
               animations={true}
             />
-          ) : (
-            <Board2D 
-              chess={chess} 
-              fen={fen} 
-              size={580} 
-              orientation={orientation} 
-              interactive={false} 
-              lastMove={lastMove} 
-              themeId={boardThemeId} 
-              vignette={false} 
-            />
-          )}
-        </div>
+          </div>
+        ) : (
+          /* 2D MODE - Centered Board */
+          <>
+            {/* Captured pieces - Black */}
+            <div style={{ 
+              height: 28, marginBottom: 12, 
+              display: "flex", gap: 2, alignItems: "center",
+              minWidth: 580
+            }}>
+              {capturedPieces.byBlack.map((p, i) => (
+                <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" 
+                  style={{ width: 22, height: 22, opacity: 0.6 }} />
+              ))}
+            </div>
 
-        {/* Captured pieces - White */}
-        <div style={{ 
-          height: 28, marginTop: 12, 
-          display: "flex", gap: 2, alignItems: "center",
-          minWidth: 580
-        }}>
-          {capturedPieces.byWhite.map((p, i) => (
-            <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" 
-              style={{ width: 22, height: 22, opacity: 0.6 }} />
-          ))}
-        </div>
+            {/* THE BOARD - 2D */}
+            <div style={{
+              background: "rgba(0,0,0,0.3)",
+              borderRadius: 4,
+              padding: 4,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            }}>
+              <Board2D 
+                chess={chess} 
+                fen={fen} 
+                size={580} 
+                orientation={orientation} 
+                interactive={false} 
+                lastMove={lastMove} 
+                themeId={boardThemeId} 
+                vignette={false} 
+              />
+            </div>
 
-        {/* Controls Bar */}
+            {/* Captured pieces - White */}
+            <div style={{ 
+              height: 28, marginTop: 12, 
+              display: "flex", gap: 2, alignItems: "center",
+              minWidth: 580
+            }}>
+              {capturedPieces.byWhite.map((p, i) => (
+                <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" 
+                  style={{ width: 22, height: 22, opacity: 0.6 }} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Floating Controls Bar */}
         <div style={{
+          position: boardView === "3d" ? "absolute" : "relative",
+          bottom: boardView === "3d" ? 24 : "auto",
+          left: boardView === "3d" ? "50%" : "auto",
+          transform: boardView === "3d" ? "translateX(-50%)" : "none",
+          marginTop: boardView === "3d" ? 0 : 24,
           display: "flex",
           alignItems: "center",
           gap: 8,
-          marginTop: 24,
-          background: "rgba(255,255,255,0.03)",
+          background: boardView === "3d" ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.03)",
+          backdropFilter: boardView === "3d" ? "blur(20px)" : "none",
           border: `1px solid ${theme.border}`,
           borderRadius: 12,
           padding: "8px 12px",
+          zIndex: 50,
         }}>
           {[
             { icon: "⏮", action: () => { goToMove(0); setAutoPlay(false); }, disabled: moveIndex === 0 },
