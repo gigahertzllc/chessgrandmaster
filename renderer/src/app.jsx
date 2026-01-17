@@ -1,15 +1,17 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.3
- * Last Updated: January 16, 2026
+ * Version: 1.5.4
+ * Last Updated: January 17, 2026
+ * 
+ * v1.5.4 - Audio Management in Admin Panel
+ *   - Drag & drop audio upload in Admin Panel
+ *   - Automatic ID3 tag reading (title, artist, album, artwork)
+ *   - Audio stored in Supabase Storage
+ *   - Track metadata in audio_tracks table
+ *   - Mode assignment (zone, casual, puzzle, analysis, menu)
+ *   - AudioManager loads from Supabase first, fallback to static files
  * 
  * v1.5.3 - Real Add Player Feature
- *   - Fully working Add New Player from Admin Panel
- *   - Custom players stored in Supabase custom_players table
- *   - Delete custom players (with confirmation modal, no alerts)
- *   - Custom players show in sidebar with game counts
- *   - All fake/placeholder features removed
- * 
  * v1.5.2 - Audio & Migration Fixes
  * v1.5.1 - Supabase Storage & Pixabay Audio
  * v1.5.0 - Admin Panel & Board Theme Fixes
@@ -38,7 +40,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.3";
+const APP_VERSION = "1.5.4";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography

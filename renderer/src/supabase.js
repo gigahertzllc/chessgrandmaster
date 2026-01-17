@@ -379,5 +379,76 @@ export const db = {
   deleteCustomPlayer: async (playerId) => {
     if (!supabase) return { error: { message: 'Supabase not configured' } };
     return supabase.from('custom_players').delete().eq('id', playerId);
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO TRACKS (Zone Mode music uploaded via Admin Panel)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  uploadAudioFile: async (file, filename) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    const path = `audio/${Date.now()}_${filename}`;
+    const { data, error } = await supabase.storage
+      .from('assets')
+      .upload(path, file, { contentType: file.type });
+    
+    if (error) return { error };
+    
+    const { data: urlData } = supabase.storage.from('assets').getPublicUrl(path);
+    return { data: { path, url: urlData.publicUrl }, error: null };
+  },
+  
+  uploadArtwork: async (blob, trackId) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    const path = `artwork/${trackId}.jpg`;
+    const { data, error } = await supabase.storage
+      .from('assets')
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+    
+    if (error) return { error };
+    
+    const { data: urlData } = supabase.storage.from('assets').getPublicUrl(path);
+    return { data: { path, url: urlData.publicUrl }, error: null };
+  },
+  
+  createAudioTrack: async (track) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    return supabase.from('audio_tracks').insert({
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      duration: track.duration,
+      file_url: track.fileUrl,
+      artwork_url: track.artworkUrl,
+      tags: track.tags || [],
+      modes: track.modes || ['zone']
+    }).select().single();
+  },
+  
+  getAudioTracks: async () => {
+    if (!supabase) return { data: [], error: null };
+    return supabase.from('audio_tracks')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+  },
+  
+  updateAudioTrack: async (id, updates) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    return supabase.from('audio_tracks').update(updates).eq('id', id);
+  },
+  
+  deleteAudioTrack: async (id) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    return supabase.from('audio_tracks').delete().eq('id', id);
+  },
+  
+  reorderAudioTracks: async (trackIds) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    // Update sort_order for each track
+    const updates = trackIds.map((id, index) => 
+      supabase.from('audio_tracks').update({ sort_order: index }).eq('id', id)
+    );
+    return Promise.all(updates);
   }
 };

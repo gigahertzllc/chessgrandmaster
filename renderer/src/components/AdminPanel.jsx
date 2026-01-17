@@ -1,5 +1,5 @@
 /**
- * Admin Panel - Import games and manage player profiles
+ * Admin Panel - Import games, manage player profiles, and audio
  * ALL DATA STORED IN SUPABASE - No localStorage
  */
 
@@ -7,8 +7,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PLAYERS } from '../data/playerInfo.js';
 import { parsePGN, countGames } from '../data/pgnParser.js';
 import { supabase, db } from '../supabase.js';
+import { readID3Tags, formatDuration } from '../audio/id3Reader.js';
 
 export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
+  // View mode: 'players' or 'audio'
+  const [viewMode, setViewMode] = useState('players');
+  
   const [activeSection, setActiveSection] = useState('import');
   const [selectedPlayer, setSelectedPlayer] = useState('fischer');
   const [importStatus, setImportStatus] = useState(null);
@@ -18,6 +22,14 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   const [playerOverrides, setPlayerOverrides] = useState({});
   const [dbGameCounts, setDbGameCounts] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Audio state
+  const [audioTracks, setAudioTracks] = useState([]);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [pendingTrack, setPendingTrack] = useState(null);
+  const [editingTrack, setEditingTrack] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const audioInputRef = useRef(null);
   
   // Custom players from Supabase
   const [customPlayers, setCustomPlayers] = useState({});
@@ -53,10 +65,23 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     error: '#f44336'
   };
 
-  // Load player overrides, custom players, and game counts from Supabase on mount
+  // Load player overrides, custom players, game counts, and audio from Supabase on mount
   useEffect(() => {
     loadPlayerData();
+    loadAudioTracks();
   }, []);
+
+  const loadAudioTracks = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await db.getAudioTracks();
+      if (!error && data) {
+        setAudioTracks(data);
+      }
+    } catch (err) {
+      console.error('Failed to load audio tracks:', err);
+    }
+  };
 
   const loadPlayerData = async () => {
     if (!supabase) {
@@ -128,6 +153,161 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO MANAGEMENT FUNCTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const handleAudioDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(e.dataTransfer?.files || e.target?.files || []);
+    const audioFile = files.find(f => f.type.startsWith('audio/') || f.name.endsWith('.mp3'));
+    
+    if (!audioFile) {
+      setImportStatus({ type: 'error', message: 'Please drop an MP3 audio file' });
+      return;
+    }
+    
+    await processAudioFile(audioFile);
+  };
+
+  const processAudioFile = async (file) => {
+    setUploadingAudio(true);
+    setImportStatus({ type: 'loading', message: 'Reading audio metadata...' });
+    
+    try {
+      // Read ID3 tags
+      const metadata = await readID3Tags(file);
+      
+      // Create pending track with metadata
+      setPendingTrack({
+        file,
+        title: metadata.title || file.name.replace(/\.[^/.]+$/, ''),
+        artist: metadata.artist || '',
+        album: metadata.album || '',
+        duration: metadata.duration,
+        artworkUrl: metadata.artwork, // Object URL for preview
+        artworkBlob: metadata.artwork ? await fetch(metadata.artwork).then(r => r.blob()) : null,
+        modes: ['zone'],
+        tags: []
+      });
+      
+      setImportStatus({ type: 'success', message: 'Metadata extracted! Review and save.' });
+    } catch (err) {
+      console.error('Error processing audio:', err);
+      setImportStatus({ type: 'error', message: `Failed to process: ${err.message}` });
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
+  const handleSaveTrack = async () => {
+    if (!pendingTrack || !supabase) return;
+    
+    setUploadingAudio(true);
+    setImportStatus({ type: 'loading', message: 'Uploading audio file...' });
+    
+    try {
+      // Upload audio file
+      const { data: audioData, error: audioError } = await db.uploadAudioFile(
+        pendingTrack.file, 
+        pendingTrack.file.name
+      );
+      
+      if (audioError) throw audioError;
+      
+      let artworkUrl = null;
+      
+      // Upload artwork if present
+      if (pendingTrack.artworkBlob) {
+        setImportStatus({ type: 'loading', message: 'Uploading album artwork...' });
+        const trackId = Date.now().toString();
+        const { data: artData, error: artError } = await db.uploadArtwork(
+          pendingTrack.artworkBlob,
+          trackId
+        );
+        if (!artError) {
+          artworkUrl = artData.url;
+        }
+      }
+      
+      // Create track record
+      setImportStatus({ type: 'loading', message: 'Saving track info...' });
+      const { data: track, error: trackError } = await db.createAudioTrack({
+        title: pendingTrack.title,
+        artist: pendingTrack.artist,
+        album: pendingTrack.album,
+        duration: pendingTrack.duration,
+        fileUrl: audioData.url,
+        artworkUrl,
+        modes: pendingTrack.modes,
+        tags: pendingTrack.tags
+      });
+      
+      if (trackError) throw trackError;
+      
+      // Add to local state
+      setAudioTracks(prev => [...prev, track]);
+      
+      // Clean up
+      if (pendingTrack.artworkUrl) {
+        URL.revokeObjectURL(pendingTrack.artworkUrl);
+      }
+      setPendingTrack(null);
+      
+      setImportStatus({ type: 'success', message: `"${pendingTrack.title}" added successfully!` });
+    } catch (err) {
+      console.error('Error saving track:', err);
+      setImportStatus({ type: 'error', message: `Failed to save: ${err.message}` });
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
+  const handleDeleteTrack = async (trackId) => {
+    if (!supabase) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await db.deleteAudioTrack(trackId);
+      if (error) throw error;
+      
+      setAudioTracks(prev => prev.filter(t => t.id !== trackId));
+      setImportStatus({ type: 'success', message: 'Track deleted' });
+    } catch (err) {
+      setImportStatus({ type: 'error', message: `Delete failed: ${err.message}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateTrack = async (trackId, updates) => {
+    if (!supabase) return;
+    
+    try {
+      const { error } = await db.updateAudioTrack(trackId, updates);
+      if (error) throw error;
+      
+      setAudioTracks(prev => prev.map(t => 
+        t.id === trackId ? { ...t, ...updates } : t
+      ));
+      setEditingTrack(null);
+    } catch (err) {
+      setImportStatus({ type: 'error', message: `Update failed: ${err.message}` });
+    }
+  };
+
+  const toggleTrackMode = (mode) => {
+    if (!pendingTrack) return;
+    setPendingTrack(prev => ({
+      ...prev,
+      modes: prev.modes.includes(mode)
+        ? prev.modes.filter(m => m !== mode)
+        : [...prev.modes, mode]
+    }));
   };
 
   // Generate player ID from name
@@ -497,7 +677,46 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     <div style={styles.container(colors)}>
       {/* Header */}
       <div style={styles.header(colors)}>
-        <h2 style={styles.title(colors)}>⚙️ Admin Panel</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <h2 style={styles.title(colors)}>⚙️ Admin Panel</h2>
+          
+          {/* View Mode Tabs */}
+          <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', padding: 4, borderRadius: 8 }}>
+            <button
+              onClick={() => setViewMode('players')}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: 6,
+                background: viewMode === 'players' ? colors.accent : 'transparent',
+                color: viewMode === 'players' ? '#fff' : colors.muted,
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: 13,
+                transition: 'all 0.2s'
+              }}
+            >
+              ♟️ Players
+            </button>
+            <button
+              onClick={() => setViewMode('audio')}
+              style={{
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: 6,
+                background: viewMode === 'audio' ? colors.accent : 'transparent',
+                color: viewMode === 'audio' ? '#fff' : colors.muted,
+                cursor: 'pointer',
+                fontWeight: 500,
+                fontSize: 13,
+                transition: 'all 0.2s'
+              }}
+            >
+              🎵 Audio ({audioTracks.length})
+            </button>
+          </div>
+        </div>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {!supabase && (
             <span style={{ color: colors.error, fontSize: 13 }}>⚠️ Supabase not configured</span>
@@ -506,7 +725,309 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         </div>
       </div>
 
-      {/* Content */}
+      {/* AUDIO MANAGEMENT VIEW */}
+      {viewMode === 'audio' && (
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            
+            {/* Upload Area */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleAudioDrop}
+              onClick={() => audioInputRef.current?.click()}
+              style={{
+                padding: 40,
+                border: `2px dashed ${dragOver ? colors.accent : colors.border}`,
+                borderRadius: 12,
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: dragOver ? `${colors.accent}10` : 'transparent',
+                transition: 'all 0.2s',
+                marginBottom: 24
+              }}
+            >
+              <input
+                ref={audioInputRef}
+                type="file"
+                accept="audio/mp3,audio/mpeg,.mp3"
+                onChange={(e) => e.target.files[0] && processAudioFile(e.target.files[0])}
+                style={{ display: 'none' }}
+              />
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🎵</div>
+              <div style={{ fontWeight: 500, marginBottom: 8, color: colors.text }}>
+                Drop MP3 file here or click to browse
+              </div>
+              <div style={{ fontSize: 13, color: colors.muted }}>
+                Metadata (title, artist, album art) will be extracted automatically
+              </div>
+            </div>
+
+            {/* Pending Track Preview */}
+            {pendingTrack && (
+              <div style={{
+                background: colors.card,
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 24,
+                border: `1px solid ${colors.border}`
+              }}>
+                <h3 style={{ margin: '0 0 16px', color: colors.text }}>📝 New Track</h3>
+                
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {/* Album Art */}
+                  <div style={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: 8,
+                    background: colors.bg,
+                    overflow: 'hidden',
+                    flexShrink: 0
+                  }}>
+                    {pendingTrack.artworkUrl ? (
+                      <img src={pendingTrack.artworkUrl} alt="Album art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted, fontSize: 40 }}>
+                        🎵
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Track Info Form */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: colors.muted, display: 'block', marginBottom: 4 }}>TITLE</label>
+                        <input
+                          type="text"
+                          value={pendingTrack.title}
+                          onChange={(e) => setPendingTrack(p => ({ ...p, title: e.target.value }))}
+                          style={styles.input(colors)}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: colors.muted, display: 'block', marginBottom: 4 }}>ARTIST</label>
+                        <input
+                          type="text"
+                          value={pendingTrack.artist}
+                          onChange={(e) => setPendingTrack(p => ({ ...p, artist: e.target.value }))}
+                          style={styles.input(colors)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: colors.muted, display: 'block', marginBottom: 4 }}>ALBUM</label>
+                        <input
+                          type="text"
+                          value={pendingTrack.album}
+                          onChange={(e) => setPendingTrack(p => ({ ...p, album: e.target.value }))}
+                          style={styles.input(colors)}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: colors.muted, display: 'block', marginBottom: 4 }}>DURATION</label>
+                        <div style={{ padding: '10px 12px', background: colors.bg, borderRadius: 6, color: colors.text }}>
+                          {formatDuration(pendingTrack.duration)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Mode Selection */}
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontSize: 11, color: colors.muted, display: 'block', marginBottom: 8 }}>PLAY IN MODES</label>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {['zone', 'casual', 'puzzle', 'analysis', 'menu'].map(mode => (
+                          <button
+                            key={mode}
+                            onClick={() => toggleTrackMode(mode)}
+                            style={{
+                              padding: '6px 12px',
+                              border: `1px solid ${pendingTrack.modes.includes(mode) ? colors.accent : colors.border}`,
+                              borderRadius: 6,
+                              background: pendingTrack.modes.includes(mode) ? `${colors.accent}20` : 'transparent',
+                              color: pendingTrack.modes.includes(mode) ? colors.accent : colors.muted,
+                              cursor: 'pointer',
+                              fontSize: 12,
+                              textTransform: 'capitalize'
+                            }}
+                          >
+                            {pendingTrack.modes.includes(mode) ? '✓ ' : ''}{mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <button
+                        onClick={handleSaveTrack}
+                        disabled={uploadingAudio || !pendingTrack.title}
+                        style={{
+                          flex: 1,
+                          padding: '12px 20px',
+                          border: 'none',
+                          borderRadius: 8,
+                          background: uploadingAudio ? colors.muted : colors.accent,
+                          color: '#fff',
+                          cursor: uploadingAudio ? 'wait' : 'pointer',
+                          fontWeight: 600
+                        }}
+                      >
+                        {uploadingAudio ? 'Uploading...' : '✓ Save Track'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (pendingTrack.artworkUrl) URL.revokeObjectURL(pendingTrack.artworkUrl);
+                          setPendingTrack(null);
+                        }}
+                        style={{
+                          padding: '12px 20px',
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: 8,
+                          background: 'transparent',
+                          color: colors.text,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Status */}
+            {importStatus && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: 8,
+                marginBottom: 16,
+                background: importStatus.type === 'error' ? `${colors.error}20` :
+                           importStatus.type === 'success' ? `${colors.success}20` :
+                           `${colors.accent}20`,
+                color: importStatus.type === 'error' ? colors.error :
+                       importStatus.type === 'success' ? colors.success :
+                       colors.accent,
+                fontSize: 13
+              }}>
+                {importStatus.type === 'loading' && '⏳ '}
+                {importStatus.type === 'success' && '✓ '}
+                {importStatus.type === 'error' && '✕ '}
+                {importStatus.message}
+              </div>
+            )}
+
+            {/* Track List */}
+            <h3 style={{ margin: '0 0 16px', color: colors.text }}>
+              🎶 Audio Library ({audioTracks.length} tracks)
+            </h3>
+            
+            {audioTracks.length === 0 ? (
+              <div style={{
+                padding: 40,
+                textAlign: 'center',
+                color: colors.muted,
+                background: colors.card,
+                borderRadius: 12
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🔇</div>
+                <div>No audio tracks yet. Upload your first track above!</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {audioTracks.map(track => (
+                  <div
+                    key={track.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 16,
+                      padding: 12,
+                      background: colors.card,
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border}`
+                    }}
+                  >
+                    {/* Artwork */}
+                    <div style={{
+                      width: 50,
+                      height: 50,
+                      borderRadius: 6,
+                      background: colors.bg,
+                      overflow: 'hidden',
+                      flexShrink: 0
+                    }}>
+                      {track.artwork_url ? (
+                        <img src={track.artwork_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.muted }}>
+                          🎵
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, color: colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {track.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: colors.muted }}>
+                        {track.artist || 'Unknown Artist'} {track.album && `• ${track.album}`}
+                      </div>
+                    </div>
+                    
+                    {/* Duration */}
+                    <div style={{ fontSize: 13, color: colors.muted, flexShrink: 0 }}>
+                      {formatDuration(track.duration)}
+                    </div>
+                    
+                    {/* Modes */}
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      {(track.modes || ['zone']).map(mode => (
+                        <span
+                          key={mode}
+                          style={{
+                            padding: '2px 6px',
+                            fontSize: 10,
+                            background: `${colors.accent}20`,
+                            color: colors.accent,
+                            borderRadius: 4,
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          {mode}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDeleteTrack(track.id)}
+                      style={{
+                        padding: '6px 10px',
+                        border: `1px solid ${colors.error}40`,
+                        borderRadius: 6,
+                        background: 'transparent',
+                        color: colors.error,
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PLAYERS MANAGEMENT VIEW */}
+      {viewMode === 'players' && (
       <div style={styles.content}>
         {/* Sidebar - Player Selection */}
         <div style={styles.sidebar(colors)}>
@@ -1087,6 +1608,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

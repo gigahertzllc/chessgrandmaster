@@ -1,8 +1,10 @@
 /**
  * AudioManager - Lo-fi music player for Zone Mode
  * Supports crossfades, shuffle (no annoying repeats), and mode-based playlists
- * Uses royalty-free tracks from Pixabay (stored in public/audio/lofi/)
+ * Loads tracks from Supabase (with fallback to static playlist.json)
  */
+
+import { db, supabase } from '../supabase.js';
 
 class AudioManager {
   constructor(options = {}) {
@@ -51,9 +53,26 @@ class AudioManager {
   }
 
   /**
-   * Load playlist manifest from URL or use default
+   * Load tracks - tries Supabase first, then falls back to static playlist.json
    */
   async loadManifest(url = "/audio/lofi/playlist.json") {
+    // Try loading from Supabase first
+    if (supabase) {
+      try {
+        const { data: tracks, error } = await db.getAudioTracks();
+        if (!error && tracks && tracks.length > 0) {
+          console.log("AudioManager: Loaded", tracks.length, "tracks from Supabase");
+          this.manifest = this.convertSupabaseTracks(tracks);
+          this.updateTracksMap();
+          this.setMode(this.mode);
+          return;
+        }
+      } catch (err) {
+        console.warn("AudioManager: Supabase load failed, trying static file", err);
+      }
+    }
+
+    // Fallback to static playlist.json
     try {
       const resp = await fetch(url, { cache: "no-cache" });
       if (resp.ok) {
@@ -67,12 +86,56 @@ class AudioManager {
       this.manifest = this.getDefaultManifest();
     }
 
+    this.updateTracksMap();
+    this.setMode(this.mode);
+  }
+
+  updateTracksMap() {
     this.tracksById.clear();
     for (const t of this.manifest.tracks) {
       this.tracksById.set(t.id, t);
     }
+  }
 
-    this.setMode(this.mode);
+  /**
+   * Convert Supabase tracks to manifest format
+   */
+  convertSupabaseTracks(tracks) {
+    const manifestTracks = tracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist,
+      album: t.album,
+      file: t.file_url,
+      artwork: t.artwork_url,
+      duration: t.duration,
+      tags: t.tags || []
+    }));
+
+    // Build modes from track modes arrays
+    const modes = {
+      zone: [],
+      casual: [],
+      puzzle: [],
+      analysis: [],
+      menu: []
+    };
+
+    tracks.forEach(t => {
+      const trackModes = t.modes || ['zone'];
+      trackModes.forEach(mode => {
+        if (modes[mode]) {
+          modes[mode].push(t.id);
+        }
+      });
+    });
+
+    return {
+      version: 2,
+      source: 'supabase',
+      tracks: manifestTracks,
+      modes
+    };
   }
 
   getDefaultManifest() {
