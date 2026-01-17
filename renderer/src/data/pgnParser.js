@@ -13,8 +13,12 @@ import { PLAYERS } from './playerInfo.js';
 export function parsePGN(pgnString, limit = 0) {
   const games = [];
   
-  // Split into individual games (separated by double newlines before [Event)
-  const gameStrings = pgnString.split(/\n\n(?=\[Event)/);
+  // Normalize line endings
+  const normalized = pgnString.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  
+  // Split into individual games - handle various PGN formats
+  // Games are separated by blank lines between the result and next [Event
+  const gameStrings = normalized.split(/\n\s*\n(?=\[Event\s)/);
   
   const maxGames = limit > 0 ? Math.min(limit, gameStrings.length) : gameStrings.length;
   
@@ -41,20 +45,40 @@ function parseGame(gameStr, index = 0) {
     headers[match[1]] = match[2];
   }
   
-  // Extract moves (everything after headers)
-  const movesMatch = gameStr.match(/\]\s*\n\n?([\s\S]+)$/);
-  let moves = movesMatch ? movesMatch[1].trim() : "";
+  // Extract moves section (everything after the last header)
+  // Find the position after the last ] that's followed by the moves
+  let movesStartIndex = 0;
+  const lastBracketMatch = gameStr.match(/\]\s*\n/g);
+  if (lastBracketMatch) {
+    // Find the last occurrence
+    let lastIndex = 0;
+    let searchStr = gameStr;
+    for (const m of lastBracketMatch) {
+      const idx = searchStr.indexOf(m);
+      lastIndex += idx + m.length;
+      searchStr = searchStr.slice(idx + m.length);
+    }
+    movesStartIndex = lastIndex;
+  }
   
-  // Clean up moves - remove comments and variations for cleaner display
-  moves = moves
-    .replace(/\{[^}]*\}/g, '') // Remove comments
-    .replace(/\([^)]*\)/g, '')  // Remove variations
-    .replace(/\s+/g, ' ')       // Normalize whitespace
+  let movesSection = gameStr.slice(movesStartIndex).trim();
+  
+  // Clean up moves for display - remove comments and variations
+  let cleanMoves = movesSection
+    .replace(/\{[^}]*\}/g, '')      // Remove { } comments
+    .replace(/;[^\n]*/g, '')        // Remove ; comments
+    .replace(/\([^)]*\)/g, '')      // Remove variations (simple)
+    .replace(/\$\d+/g, '')          // Remove NAGs like $1 $2
+    .replace(/\s+/g, ' ')           // Normalize whitespace
     .trim();
   
   if (!headers.White || !headers.Black) return null;
   
   const category = inferCategory(headers.White, headers.Black);
+  
+  // Build a proper PGN string that chess.js can parse
+  // chess.js needs the moves in a format it can understand
+  const fullPgn = buildPGN(headers, cleanMoves);
   
   return {
     id: generateId(headers, index),
@@ -62,6 +86,7 @@ function parseGame(gameStr, index = 0) {
     black: headers.Black,
     result: headers.Result || "*",
     year: headers.Date ? parseInt(headers.Date.split('.')[0]) : null,
+    date: headers.Date || null,
     event: headers.Event || "Unknown",
     site: headers.Site || "",
     round: headers.Round || "",
@@ -70,20 +95,49 @@ function parseGame(gameStr, index = 0) {
     blackElo: headers.BlackElo || "",
     title: `${headers.White} vs ${headers.Black}`,
     description: generateDescription(headers),
-    pgn: moves,
+    pgn: fullPgn,  // Store full PGN for chess.js
+    moves: cleanMoves, // Store clean moves for display
     category: category
   };
+}
+
+/**
+ * Build a complete PGN string from headers and moves
+ */
+function buildPGN(headers, moves) {
+  const lines = [];
+  
+  // Add essential headers
+  const essentialHeaders = ['Event', 'Site', 'Date', 'Round', 'White', 'Black', 'Result'];
+  for (const h of essentialHeaders) {
+    lines.push(`[${h} "${headers[h] || '?'}"]`);
+  }
+  
+  // Add optional headers if present
+  const optionalHeaders = ['WhiteElo', 'BlackElo', 'ECO', 'Opening'];
+  for (const h of optionalHeaders) {
+    if (headers[h]) {
+      lines.push(`[${h} "${headers[h]}"]`);
+    }
+  }
+  
+  // Add blank line and moves
+  lines.push('');
+  lines.push(moves);
+  
+  return lines.join('\n');
 }
 
 /**
  * Generate a unique ID for a game
  */
 function generateId(headers, index = 0) {
-  const white = (headers.White || "").toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
-  const black = (headers.Black || "").toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
-  const date = (headers.Date || "").replace(/\./g, '');
+  const white = (headers.White || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+  const black = (headers.Black || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+  const date = (headers.Date || "").replace(/\./g, '').replace(/\?/g, '');
   const round = (headers.Round || "").replace(/[^0-9]/g, '');
-  return `${white}-${black}-${date}-${round || index}`;
+  const event = (headers.Event || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  return `${white}-${black}-${event}-${date}-${round || index}`;
 }
 
 /**

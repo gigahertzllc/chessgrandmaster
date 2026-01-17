@@ -119,12 +119,40 @@ export default function ZoneMode({
     try {
       const temp = new Chess();
       temp.loadPgn(pgn, { strict: false });
-      setMoves(temp.history());
+      let history = temp.history();
+      
+      // If loadPgn didn't get moves, try parsing as just moves text
+      if (history.length === 0 && pgn) {
+        temp.reset();
+        // Extract just the moves (remove move numbers, results, etc.)
+        const moveText = pgn
+          .replace(/\[[^\]]*\]/g, '')  // Remove headers
+          .replace(/\{[^}]*\}/g, '')   // Remove comments
+          .replace(/\d+\.\s*/g, '')    // Remove move numbers
+          .replace(/1-0|0-1|1\/2-1\/2|\*/g, '') // Remove results
+          .trim()
+          .split(/\s+/)
+          .filter(m => m && /^[KQRBNP]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?[+#]?$|^O-O(-O)?[+#]?$/i.test(m));
+        
+        for (const move of moveText) {
+          try {
+            temp.move(move, { sloppy: true });
+          } catch {
+            break;
+          }
+        }
+        history = temp.history();
+      }
+      
+      setMoves(history);
       setMoveIndex(0);
       chess.reset();
       setFen(chess.fen());
       setLastMove(null);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("ZoneMode loadPgn error:", e); 
+      setMoves([]);
+    }
   }, [chess]);
 
   const goToMove = useCallback((idx) => {

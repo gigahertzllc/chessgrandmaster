@@ -1,7 +1,33 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.7
+ * Version: 1.6.0
  * Last Updated: January 17, 2026
+ * 
+ * v1.6.0 - Critical PGN Parser Fix
+ *   - FIXED: PGN parser now stores full PGN (headers + moves)
+ *   - Previously only stored moves, causing chess.js loadPgn() to fail
+ *   - Added buildPGN() to reconstruct valid PGN from parsed headers
+ *   - Better line ending handling (Windows/Unix)
+ *   - Improved game splitting regex for various PGN formats
+ *   - Added debug logging for PGN loading issues
+ *   - NOTE: Re-import games via Admin Panel to fix existing data
+ * 
+ * v1.5.9 - Layout & Masters Section Fixes
+ *   - Chess Classics: Narrower games list (220px), wider board area
+ *   - Info panel: Compact layout (280px) with better move display
+ *   - Masters section: Shows ALL built-in players (not just those with PGN files)
+ *   - Games without moves now show "No moves available" message
+ *   - Games list shows warning icon for games missing PGN data
+ *   - Player cards: "Has Games" badge for players with game collections
+ *   - Custom players from admin marked with purple "Custom" badge
+ * 
+ * v1.5.8 - Masters Section + Layout Fixes
+ *   - Masters section now shows custom players from Supabase
+ *   - Games grid: narrower first column (280px), wider board area
+ *   - Board size increased from 360px to 420px
+ *   - Master games load from Supabase first, then fall back to PGN files
+ *   - Fixed player cards to show icon when image unavailable
+ *   - Custom players marked with green "Custom" badge
  * 
  * v1.5.7 - Multiple 3D Piece Sets + Camera Options
  *   - 7 piece set styles: Ebony/Ivory, Modern Matte, Boxwood/Rosewood,
@@ -52,12 +78,13 @@ import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "
 import { supabase, auth, db } from "./supabase.js";
 import { parsePGN, MASTER_COLLECTIONS } from "./data/pgnParser.js";
 import { PLAYERS, getPlayer } from "./data/playerInfo.js";
+import { getGamesByMaster } from "./data/mastersDatabase.js";
 import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.7";
+const APP_VERSION = "1.6.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -169,6 +196,8 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedMaster, setSelectedMaster] = useState(null);
   const [masterGames, setMasterGames] = useState([]);
+  const [customPlayers, setCustomPlayers] = useState([]);
+  const [customPlayersLoading, setCustomPlayersLoading] = useState(false);
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
   const [error, setError] = useState(null);
@@ -374,21 +403,81 @@ export default function App() {
 
   const selectCategory = (catId) => { setSelectedCategory(catId); setSearchResults([]); setGames(getGamesByCategory(catId)); };
 
+  // Load custom players from Supabase
+  const loadCustomPlayers = async () => {
+    setCustomPlayersLoading(true);
+    try {
+      const { data, error } = await db.getCustomPlayers();
+      if (error) throw error;
+      setCustomPlayers(data || []);
+    } catch (e) {
+      console.error("Error loading custom players:", e);
+    }
+    setCustomPlayersLoading(false);
+  };
+
+  // Load custom players when source changes to "masters"
+  useEffect(() => {
+    if (source === "masters") {
+      loadCustomPlayers();
+    }
+  }, [source]);
+
   const loadMaster = async (masterId) => {
     setSelectedMaster(masterId);
     setLoadingGames(true);
     setError(null);
+    
     try {
+      // First try to load from Supabase (custom player games)
+      const { data: dbGames, error: dbError, count } = await db.getMasterGames(masterId, 200, 0);
+      
+      if (!dbError && dbGames && dbGames.length > 0) {
+        // Games found in Supabase
+        const formatted = dbGames.map(g => ({
+          id: g.game_id || g.id,
+          white: g.white,
+          black: g.black,
+          whiteElo: g.white_elo,
+          blackElo: g.black_elo,
+          result: g.result,
+          year: g.year,
+          event: g.event,
+          site: g.site,
+          round: g.round,
+          eco: g.eco,
+          pgn: g.pgn,
+          title: g.title || `${g.white} vs ${g.black}`,
+          description: g.description
+        }));
+        setMasterGames(formatted);
+        setGames(formatted);
+        setLoadingGames(false);
+        return;
+      }
+      
+      // Fall back to local PGN file
       const collection = MASTER_COLLECTIONS[masterId];
-      if (!collection) throw new Error("Unknown master");
-      const response = await fetch(collection.file);
-      if (!response.ok) throw new Error("Failed to load PGN");
-      const text = await response.text();
-      const parsed = parsePGN(text);
-      setMasterGames(parsed);
-      setGames(parsed);
+      if (collection?.file) {
+        const response = await fetch(collection.file);
+        if (!response.ok) throw new Error("Failed to load PGN");
+        const text = await response.text();
+        const parsed = parsePGN(text);
+        setMasterGames(parsed);
+        setGames(parsed);
+      } else {
+        // Check mastersDatabase.js for built-in games
+        const builtIn = getGamesByMaster(masterId);
+        if (builtIn && builtIn.length > 0) {
+          setMasterGames(builtIn);
+          setGames(builtIn);
+        } else {
+          setGames([]);
+          setMasterGames([]);
+        }
+      }
     } catch (e) {
-      console.error("Error loading master PGN:", e);
+      console.error("Error loading master games:", e);
       setError("Failed to load games");
       setGames([]);
     }
@@ -404,16 +493,58 @@ export default function App() {
   }, [source, importedGames]);
 
   const selectGame = useCallback((game) => {
-    if (!game?.pgn) return;
     setSelectedGame(game);
+    if (!game?.pgn) {
+      console.warn("Game has no PGN data:", game?.title || game?.id);
+      setLibraryMoves([]);
+      setLibraryFen(new Chess().fen());
+      setLibraryMoveIndex(0);
+      return;
+    }
     try {
       libraryChess.reset();
-      libraryChess.loadPgn(game.pgn, { strict: false });
-      setLibraryMoves(libraryChess.history());
+      // Try loading the PGN - works with full PGN or just moves
+      let success = libraryChess.loadPgn(game.pgn, { strict: false });
+      let history = libraryChess.history();
+      
+      // If loadPgn didn't get moves, try parsing as just moves text
+      if (history.length === 0 && game.pgn) {
+        libraryChess.reset();
+        // Extract just the moves (remove move numbers, results, etc.)
+        const moveText = game.pgn
+          .replace(/\[[^\]]*\]/g, '')  // Remove headers
+          .replace(/\{[^}]*\}/g, '')   // Remove comments
+          .replace(/\d+\.\s*/g, '')    // Remove move numbers
+          .replace(/1-0|0-1|1\/2-1\/2|\*/g, '') // Remove results
+          .trim()
+          .split(/\s+/)
+          .filter(m => m && /^[KQRBNP]?[a-h]?[1-8]?x?[a-h][1-8](=[QRBN])?[+#]?$|^O-O(-O)?[+#]?$/i.test(m));
+        
+        for (const move of moveText) {
+          try {
+            libraryChess.move(move, { sloppy: true });
+          } catch {
+            // Stop if we hit an invalid move
+            break;
+          }
+        }
+        history = libraryChess.history();
+      }
+      
+      setLibraryMoves(history);
       libraryChess.reset();
       setLibraryFen(libraryChess.fen());
       setLibraryMoveIndex(0);
-    } catch { setLibraryMoves([]); }
+      
+      if (history.length === 0 && game.pgn) {
+        console.warn("Could not extract moves from PGN:", game.pgn?.slice(0, 200));
+      }
+    } catch (err) { 
+      console.error("Error loading PGN:", err, game.pgn?.slice(0, 200));
+      setLibraryMoves([]); 
+      setLibraryFen(new Chess().fen());
+      setLibraryMoveIndex(0);
+    }
   }, [libraryChess]);
 
   const goToMove = useCallback((idx) => {
@@ -614,9 +745,11 @@ export default function App() {
               <p style={{ fontSize: 13, color: theme.inkMuted, marginBottom: 16 }}>
                 Select a grandmaster to explore their game collection and biography:
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-                {Object.entries(PLAYERS).filter(([id]) => MASTER_COLLECTIONS[id]).map(([id, player]) => (
-                  <div key={id} style={{
+              {customPlayersLoading && <p style={{ color: theme.inkMuted, marginBottom: 16 }}>Loading players...</p>}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+                {/* All built-in players from PLAYERS */}
+                {Object.entries(PLAYERS).map(([id, player]) => (
+                  <div key={id} onClick={() => loadMaster(id)} style={{
                     backgroundColor: theme.card,
                     borderRadius: 16,
                     overflow: "hidden",
@@ -626,93 +759,125 @@ export default function App() {
                   }}>
                     {/* Player Image */}
                     <div style={{ 
-                      height: 180, 
+                      height: 140, 
                       backgroundColor: theme.bgAlt,
-                      backgroundImage: `url(${player.imageUrl})`,
+                      backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
                       backgroundSize: "cover",
                       backgroundPosition: "center top",
-                      position: "relative"
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
                     }}>
+                      {!player.imageUrl && (
+                        <span style={{ fontSize: 48, opacity: 0.6 }}>{player.icon || "♟️"}</span>
+                      )}
                       <div style={{
                         position: "absolute",
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        padding: "40px 16px 12px",
-                        background: "linear-gradient(transparent, rgba(0,0,0,0.8))",
+                        padding: "30px 14px 10px",
+                        background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
                         color: "#fff"
                       }}>
-                        <div style={{ fontSize: 20, fontWeight: "bold" }}>{player.icon} {player.name}</div>
-                        <div style={{ fontSize: 12, opacity: 0.9 }}>{player.nationality} • {player.worldChampion}</div>
+                        <div style={{ fontSize: 16, fontWeight: "bold" }}>{player.icon} {player.name}</div>
+                        <div style={{ fontSize: 10, opacity: 0.9 }}>{player.nationality}{player.worldChampion ? ` • ${player.worldChampion}` : ""}</div>
                       </div>
                     </div>
                     
                     {/* Player Info */}
-                    <div style={{ padding: 16 }}>
-                      <div style={{ fontSize: 13, color: theme.inkMuted, marginBottom: 12, lineHeight: 1.5 }}>
-                        {player.bio.split('\n\n')[0].slice(0, 150)}...
-                      </div>
-                      
+                    <div style={{ padding: 12 }}>
                       {/* Stats Row */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
                         {player.peakRating && (
-                          <span style={{ 
-                            padding: "4px 8px", 
-                            backgroundColor: theme.accentSoft, 
-                            borderRadius: 4, 
-                            fontSize: 11,
-                            color: theme.accent,
-                            fontWeight: 500
-                          }}>
+                          <span style={{ padding: "3px 7px", backgroundColor: theme.accentSoft, borderRadius: 4, fontSize: 10, color: theme.accent, fontWeight: 500 }}>
                             Peak: {player.peakRating}
                           </span>
                         )}
-                        {player.totalGames && (
-                          <span style={{ 
-                            padding: "4px 8px", 
-                            backgroundColor: theme.accentSoft, 
-                            borderRadius: 4, 
-                            fontSize: 11,
-                            color: theme.accent,
-                            fontWeight: 500
-                          }}>
-                            {player.totalGames.toLocaleString()} games
+                        {(MASTER_COLLECTIONS[id] || getGamesByMaster(id).length > 0) && (
+                          <span style={{ padding: "3px 7px", backgroundColor: "rgba(76,175,80,0.15)", borderRadius: 4, fontSize: 10, color: "#4CAF50", fontWeight: 500 }}>
+                            Has Games
                           </span>
                         )}
                       </div>
                       
                       {/* Action Buttons */}
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 6 }}>
                         <button 
-                          onClick={() => loadMaster(id)}
-                          style={{
-                            flex: 1,
-                            padding: "10px 16px",
-                            borderRadius: 8,
-                            border: "none",
-                            background: theme.accent,
-                            color: theme.id === "light" ? "#fff" : theme.bg,
-                            cursor: "pointer",
-                            fontWeight: 600,
-                            fontSize: 13,
-                            transition
-                          }}>
-                          📚 Browse Games
+                          onClick={(e) => { e.stopPropagation(); loadMaster(id); }}
+                          style={{ flex: 1, padding: "7px 12px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 11, transition }}>
+                          📚 Games
                         </button>
                         <button 
-                          onClick={() => setShowPlayerProfile(id)}
-                          style={{
-                            padding: "10px 16px",
-                            borderRadius: 8,
-                            border: `1px solid ${theme.border}`,
-                            background: "transparent",
-                            color: theme.ink,
-                            cursor: "pointer",
-                            fontWeight: 500,
-                            fontSize: 13,
-                            transition
-                          }}>
-                          👤 Profile
+                          onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
+                          style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer", fontWeight: 500, fontSize: 11, transition }}>
+                          👤 Bio
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Custom players from Supabase */}
+                {customPlayers.map(player => (
+                  <div key={player.id} onClick={() => loadMaster(player.id)} style={{
+                    backgroundColor: theme.card,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                    transition,
+                    cursor: "pointer"
+                  }}>
+                    {/* Player Image */}
+                    <div style={{ 
+                      height: 140, 
+                      backgroundColor: theme.bgAlt,
+                      backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center top",
+                      position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}>
+                      {!player.image_url && (
+                        <span style={{ fontSize: 48, opacity: 0.6 }}>{player.icon || "♟️"}</span>
+                      )}
+                      <div style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: "30px 14px 10px",
+                        background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
+                        color: "#fff"
+                      }}>
+                        <div style={{ fontSize: 16, fontWeight: "bold" }}>{player.icon} {player.name}</div>
+                        <div style={{ fontSize: 10, opacity: 0.9 }}>{player.nationality}{player.world_champion ? ` • ${player.world_champion}` : ""}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Player Info */}
+                    <div style={{ padding: 12 }}>
+                      {/* Stats Row */}
+                      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                        {player.peak_rating && (
+                          <span style={{ padding: "3px 7px", backgroundColor: theme.accentSoft, borderRadius: 4, fontSize: 10, color: theme.accent, fontWeight: 500 }}>
+                            Peak: {player.peak_rating}
+                          </span>
+                        )}
+                        <span style={{ padding: "3px 7px", backgroundColor: "rgba(156,39,176,0.15)", borderRadius: 4, fontSize: 10, color: "#9C27B0", fontWeight: 500 }}>
+                          Custom
+                        </span>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); loadMaster(player.id); }}
+                          style={{ flex: 1, padding: "7px 12px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 11, transition }}>
+                          📚 Games
                         </button>
                       </div>
                     </div>
@@ -748,24 +913,27 @@ export default function App() {
           {error && <p style={{ color: theme.error }}>{error}</p>}
 
           {displayGames.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr minmax(auto, 450px) 300px", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 280px", gap: 16 }}>
               {/* Games List */}
               <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
-                <div style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted }}>
+                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted }}>
                   GAMES ({displayGames.length})
                 </div>
                 <div style={{ maxHeight: 600, overflowY: "auto" }}>
                   {displayGames.map((game, i) => (
                     <div key={game.id || i} onClick={() => selectGame(game)}
-                      style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, cursor: "pointer", background: selectedGame?.id === game.id ? theme.accentSoft : "transparent", transition }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14 }}>{game.title || `${game.white} vs ${game.black}`}</span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted }}>{game.result}</span>
+                      style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, cursor: "pointer", background: selectedGame?.id === game.id ? theme.accentSoft : "transparent", transition }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600, fontSize: 12, lineHeight: 1.3 }}>{game.title || `${game.white} vs ${game.black}`}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: theme.inkMuted }}>{game.event} {game.year || game.date}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: theme.inkMuted }}>{game.event?.slice(0, 20)} {game.year || game.date}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted }}>{game.result}</span>
+                      </div>
+                      {!game.pgn && <span style={{ fontSize: 10, color: theme.error }}>⚠ No moves</span>}
                       {source === "imported" && (
                         <button onClick={(e) => { e.stopPropagation(); deleteImportedGame(game.id); }}
-                          style={{ marginTop: 8, padding: "4px 8px", fontSize: 11, borderRadius: 4, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer" }}>Delete</button>
+                          style={{ marginTop: 6, padding: "3px 6px", fontSize: 10, borderRadius: 4, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer" }}>Delete</button>
                       )}
                     </div>
                   ))}
@@ -778,7 +946,7 @@ export default function App() {
                   {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
                 <div style={{ maxWidth: "100%", overflow: "hidden" }}>
-                  <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} size={360} />
+                  <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} size={420} />
                 </div>
                 <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, alignItems: "center", width: "100%", justifyContent: "center" }}>
                   {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
@@ -804,29 +972,41 @@ export default function App() {
               </div>
 
               {/* Info */}
-              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 20, display: "flex", flexDirection: "column", maxHeight: 700 }}>
+              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 16, display: "flex", flexDirection: "column", maxHeight: 700 }}>
                 {selectedGame ? (
                   <>
-                    <h2 style={{ fontFamily: fonts.display, fontSize: 18, marginBottom: 4 }}>{selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}</h2>
-                    {selectedGame.description && <p style={{ fontSize: 13, color: theme.inkMuted, lineHeight: 1.6, marginBottom: 12 }}>{selectedGame.description}</p>}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-                      <span style={{ fontSize: 11, padding: "4px 10px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.event}</span>
-                      <span style={{ fontSize: 11, padding: "4px 10px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.result}</span>
+                    <h2 style={{ fontFamily: fonts.display, fontSize: 16, marginBottom: 4, lineHeight: 1.3 }}>{selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}</h2>
+                    {selectedGame.description && <p style={{ fontSize: 12, color: theme.inkMuted, lineHeight: 1.5, marginBottom: 10 }}>{selectedGame.description}</p>}
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+                      <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.event}</span>
+                      <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.result}</span>
+                      {selectedGame.year && <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.year}</span>}
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 8 }}>MOVES ({libraryMoveIndex}/{libraryMoves.length})</div>
-                    <div style={{ flex: 1, overflowY: "auto", background: theme.bgAlt, borderRadius: 10, padding: 12 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {libraryMoves.map((move, idx) => (
-                          <span key={idx} onClick={() => goToMove(idx + 1)}
-                            style={{ padding: "6px 10px", borderRadius: 6, background: idx + 1 === libraryMoveIndex ? theme.accent : "transparent", color: idx + 1 === libraryMoveIndex ? (theme.id === "light" ? "#fff" : theme.bg) : theme.ink, cursor: "pointer", fontSize: 13, transition }}>
-                            {idx % 2 === 0 && <span style={{ opacity: 0.5, marginRight: 3 }}>{Math.floor(idx / 2) + 1}.</span>}{move}
-                          </span>
-                        ))}
-                      </div>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 6 }}>MOVES ({libraryMoveIndex}/{libraryMoves.length})</div>
+                    <div style={{ flex: 1, overflowY: "auto", background: theme.bgAlt, borderRadius: 10, padding: 10 }}>
+                      {libraryMoves.length > 0 ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                          {libraryMoves.map((move, idx) => (
+                            <span key={idx} onClick={() => goToMove(idx + 1)}
+                              style={{ padding: "5px 8px", borderRadius: 5, background: idx + 1 === libraryMoveIndex ? theme.accent : "transparent", color: idx + 1 === libraryMoveIndex ? (theme.id === "light" ? "#fff" : theme.bg) : theme.ink, cursor: "pointer", fontSize: 12, transition }}>
+                              {idx % 2 === 0 && <span style={{ opacity: 0.5, marginRight: 2 }}>{Math.floor(idx / 2) + 1}.</span>}{move}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: "center", padding: 20, color: theme.inkMuted }}>
+                          <p style={{ fontSize: 24, marginBottom: 8 }}>📋</p>
+                          <p style={{ fontSize: 12 }}>No moves available for this game</p>
+                          <p style={{ fontSize: 11, marginTop: 4 }}>PGN data may be missing</p>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: theme.inkMuted }}>Select a game</div>
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: theme.inkMuted, flexDirection: "column" }}>
+                    <p style={{ fontSize: 32, marginBottom: 8 }}>♟️</p>
+                    <p style={{ fontSize: 13 }}>Select a game</p>
+                  </div>
                 )}
               </div>
             </div>
