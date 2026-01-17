@@ -3,12 +3,7 @@ import { Chess } from "chess.js";
 import Board2D from "./cm-board/components/Board2D.jsx";
 import { listBoardThemes } from "./cm-board/themes/boardThemes.js";
 import { getLesson, getAllBooks, getLessonsByBook } from "../data/lessons.js";
-
-const MUSIC_TRACKS = [
-  { name: "Bach - Air on G String", url: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Bach_Air_on_the_G_string.ogg" },
-  { name: "Beethoven - Moonlight Sonata", url: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Piano_Sonata_No._14_in_C_Sharp_Minor%2C_Op._27%2C_No._2_%22Moonlight%22_-_I._Adagio_sostenuto.ogg" },
-  { name: "Debussy - Clair de Lune", url: "https://upload.wikimedia.org/wikipedia/commons/e/e8/Clair_de_lune_%28Debussy%29.ogg" }
-];
+import { getAudioManager } from "../audio/AudioManager.js";
 
 const transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)";
 
@@ -33,10 +28,12 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
   const [showThemes, setShowThemes] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const autoPlayRef = useRef(null);
+  
+  // Audio Manager state
+  const audioManager = useMemo(() => getAudioManager(), []);
   const [musicEnabled, setMusicEnabled] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(0);
-  const [volume, setVolume] = useState(0.3);
-  const audioRef = useRef(null);
+  const [volume, setVolume] = useState(() => audioManager.getVolume());
+  const [currentTrack, setCurrentTrack] = useState(null);
 
   // When board theme changes, notify parent to save to Supabase
   const handleBoardThemeChange = (newThemeId) => {
@@ -80,13 +77,35 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
     return () => clearTimeout(autoPlayRef.current);
   }, [autoPlay, moveIndex, moves.length, goToMove]);
 
+  // Initialize AudioManager
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-      if (musicEnabled) audioRef.current.play().catch(() => {});
-      else audioRef.current.pause();
+    audioManager.loadManifest("/audio/lofi/playlist.json");
+    audioManager.setMode("zone");
+    
+    // Track change callback
+    audioManager.onTrackChange = (track) => {
+      setCurrentTrack(track);
+    };
+    
+    return () => {
+      audioManager.onTrackChange = null;
+    };
+  }, [audioManager]);
+
+  // Handle music enable/disable
+  useEffect(() => {
+    if (musicEnabled) {
+      audioManager.markUserInteracted();
+      audioManager.play();
+    } else {
+      audioManager.pause();
     }
-  }, [musicEnabled, volume, currentTrack]);
+  }, [musicEnabled, audioManager]);
+
+  // Handle volume changes
+  useEffect(() => {
+    audioManager.setVolume(volume);
+  }, [volume, audioManager]);
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -137,8 +156,6 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
       background: `linear-gradient(135deg, ${theme.bg} 0%, ${theme.bgAlt} 100%)`,
       display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
-      <audio ref={audioRef} src={MUSIC_TRACKS[currentTrack].url} loop onEnded={() => setCurrentTrack((currentTrack + 1) % MUSIC_TRACKS.length)} />
-
       {/* Header */}
       <header style={{
         ...glassCard, borderRadius: 0, borderTop: "none", borderLeft: "none", borderRight: "none",
@@ -156,11 +173,29 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setMusicEnabled(!musicEnabled)} style={{
-            background: musicEnabled ? "rgba(76,175,80,0.2)" : theme.accentSoft,
-            border: "none", borderRadius: 8, color: theme.ink, padding: "8px 14px", cursor: "pointer", fontSize: 13,
-          }}>{musicEnabled ? "🎵" : "🔇"}</button>
-          {musicEnabled && <input type="range" min="0" max="1" step="0.1" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} style={{ width: 60 }} />}
+          {/* Music Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => setMusicEnabled(!musicEnabled)} style={{
+              background: musicEnabled ? "rgba(76,175,80,0.2)" : theme.accentSoft,
+              border: "none", borderRadius: 8, color: theme.ink, padding: "8px 14px", cursor: "pointer", fontSize: 13,
+            }}>{musicEnabled ? "🎵" : "🔇"}</button>
+            {musicEnabled && (
+              <>
+                <button onClick={() => audioManager.skip()} style={{
+                  background: theme.accentSoft, border: "none", borderRadius: 8,
+                  color: theme.ink, padding: "8px 12px", cursor: "pointer", fontSize: 13,
+                }}>⏭</button>
+                <input type="range" min="0" max="100" step="5" value={Math.round(volume * 100)} 
+                  onChange={(e) => setVolume(parseInt(e.target.value) / 100)} 
+                  style={{ width: 60 }} />
+                {currentTrack && (
+                  <span style={{ fontSize: 11, color: theme.inkMuted, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {currentTrack.title}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Board Theme Selector */}
           <div style={{ position: "relative" }}>

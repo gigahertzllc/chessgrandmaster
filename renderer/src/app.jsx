@@ -1,15 +1,18 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.0
+ * Version: 1.5.3
  * Last Updated: January 16, 2026
  * 
- * v1.5.0 - Admin Panel & Board Theme Fixes
- *   - Admin panel for importing games and managing player profiles
- *   - Upload custom player images
- *   - Fixed board themes with better contrast (no dark-on-dark)
- *   - 12 distinct board themes (wood, marble, tournament, etc.)
- *   - Board theme selector in settings
+ * v1.5.3 - Real Add Player Feature
+ *   - Fully working Add New Player from Admin Panel
+ *   - Custom players stored in Supabase custom_players table
+ *   - Delete custom players (with confirmation modal, no alerts)
+ *   - Custom players show in sidebar with game counts
+ *   - All fake/placeholder features removed
  * 
+ * v1.5.2 - Audio & Migration Fixes
+ * v1.5.1 - Supabase Storage & Pixabay Audio
+ * v1.5.0 - Admin Panel & Board Theme Fixes
  * v1.4.0 - Player Profiles with Wikipedia Images
  * v1.3.0 - Player Info System
  * v1.2.0 - Masters Database
@@ -35,7 +38,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.3";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
