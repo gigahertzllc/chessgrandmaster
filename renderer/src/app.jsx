@@ -1,7 +1,25 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.6.0
+ * Version: 1.6.2
  * Last Updated: January 17, 2026
+ * 
+ * v1.6.2 - Masters Section Redesign
+ *   - Complete visual redesign with larger, cleaner cards (320px min)
+ *   - Horizontal card layout: image on left, info on right
+ *   - No emojis - clean text-based design
+ *   - Shows bio excerpt, peak rating, champion years
+ *   - Avatar fallback shows player initial letter
+ *   - "Chess Legends" header with description
+ *   - Custom players clearly marked with "CUSTOM" badge
+ *   - Hover effects on cards
+ * 
+ * v1.6.1 - Admin Panel Improvements
+ *   - FIXED: Switching players now clears pending import (no accidental imports)
+ *   - Added visual progress bar during game import
+ *   - Added Wikipedia search for new player creation (auto-fills profile)
+ *   - Import section shows current target player clearly
+ *   - Removed confusing Lichess/Chess.com search from sidebar
+ *   - Added "Clear" button to cancel pending imports
  * 
  * v1.6.0 - Critical PGN Parser Fix
  *   - FIXED: PGN parser now stores full PGN (headers + moves)
@@ -84,7 +102,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.6.2";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -742,142 +760,286 @@ export default function App() {
 
           {source === "masters" && (
             <div style={{ marginBottom: 24 }}>
-              <p style={{ fontSize: 13, color: theme.inkMuted, marginBottom: 16 }}>
-                Select a grandmaster to explore their game collection and biography:
-              </p>
-              {customPlayersLoading && <p style={{ color: theme.inkMuted, marginBottom: 16 }}>Loading players...</p>}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-                {/* All built-in players from PLAYERS */}
-                {Object.entries(PLAYERS).map(([id, player]) => (
-                  <div key={id} onClick={() => loadMaster(id)} style={{
-                    backgroundColor: theme.card,
-                    borderRadius: 16,
-                    overflow: "hidden",
-                    border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    transition,
-                    cursor: "pointer"
-                  }}>
-                    {/* Player Image */}
-                    <div style={{ 
-                      height: 140, 
-                      backgroundColor: theme.bgAlt,
-                      backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center top",
-                      position: "relative",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
-                    }}>
-                      {!player.imageUrl && (
-                        <span style={{ fontSize: 48, opacity: 0.6 }}>{player.icon || "♟️"}</span>
-                      )}
-                      <div style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: "30px 14px 10px",
-                        background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
-                        color: "#fff"
-                      }}>
-                        <div style={{ fontSize: 16, fontWeight: "bold" }}>{player.icon} {player.name}</div>
-                        <div style={{ fontSize: 10, opacity: 0.9 }}>{player.nationality}{player.worldChampion ? ` • ${player.worldChampion}` : ""}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Player Info */}
-                    <div style={{ padding: 12 }}>
-                      {/* Stats Row */}
-                      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                        {player.peakRating && (
-                          <span style={{ padding: "3px 7px", backgroundColor: theme.accentSoft, borderRadius: 4, fontSize: 10, color: theme.accent, fontWeight: 500 }}>
-                            Peak: {player.peakRating}
-                          </span>
-                        )}
-                        {(MASTER_COLLECTIONS[id] || getGamesByMaster(id).length > 0) && (
-                          <span style={{ padding: "3px 7px", backgroundColor: "rgba(76,175,80,0.15)", borderRadius: 4, fontSize: 10, color: "#4CAF50", fontWeight: 500 }}>
-                            Has Games
-                          </span>
-                        )}
+              {/* Header */}
+              <div style={{ marginBottom: 24 }}>
+                <h2 style={{ fontFamily: fonts.display, fontSize: 24, marginBottom: 8, color: theme.ink }}>
+                  Chess Legends
+                </h2>
+                <p style={{ fontSize: 14, color: theme.inkMuted, maxWidth: 600, lineHeight: 1.5 }}>
+                  Explore curated game collections from the greatest players in chess history.
+                  Study their strategies, learn from their brilliance.
+                </p>
+              </div>
+              
+              {customPlayersLoading && (
+                <div style={{ padding: 20, textAlign: "center", color: theme.inkMuted }}>
+                  Loading players...
+                </div>
+              )}
+              
+              {/* Player Grid - Larger Cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
+                {/* Built-in players */}
+                {Object.entries(PLAYERS).map(([id, player]) => {
+                  const gameCount = getGamesByMaster(id).length;
+                  const hasGames = MASTER_COLLECTIONS[id] || gameCount > 0;
+                  
+                  return (
+                    <div 
+                      key={id} 
+                      onClick={() => loadMaster(id)} 
+                      style={{
+                        backgroundColor: theme.card,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                        transition: "all 0.2s ease",
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column"
+                      }}
+                      onMouseOver={(e) => { if (selectedMaster !== id) e.currentTarget.style.borderColor = theme.accent + "60"; }}
+                      onMouseOut={(e) => { if (selectedMaster !== id) e.currentTarget.style.borderColor = theme.border; }}
+                    >
+                      {/* Top Section - Image + Basic Info */}
+                      <div style={{ display: "flex", height: 140 }}>
+                        {/* Player Image */}
+                        <div style={{ 
+                          width: 140,
+                          minWidth: 140,
+                          backgroundColor: theme.bgAlt,
+                          backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
+                          backgroundSize: "cover",
+                          backgroundPosition: "center top",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}>
+                          {!player.imageUrl && (
+                            <div style={{ 
+                              width: 70, 
+                              height: 70, 
+                              borderRadius: "50%", 
+                              background: theme.accentSoft,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 28,
+                              color: theme.accent
+                            }}>
+                              {player.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Quick Info */}
+                        <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
+                            {player.name}
+                          </div>
+                          <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
+                            {player.nationality}
+                          </div>
+                          
+                          {/* Key Stats */}
+                          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                            {player.peakRating && (
+                              <div>
+                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
+                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
+                              </div>
+                            )}
+                            {player.worldChampion && (
+                              <div>
+                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
+                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       
-                      {/* Action Buttons */}
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); loadMaster(id); }}
-                          style={{ flex: 1, padding: "7px 12px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 11, transition }}>
-                          📚 Games
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
-                          style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer", fontWeight: 500, fontSize: 11, transition }}>
-                          👤 Bio
-                        </button>
+                      {/* Bottom Section - Bio + Actions */}
+                      <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
+                        {/* Bio Excerpt */}
+                        <p style={{ 
+                          fontSize: 13, 
+                          color: theme.inkMuted, 
+                          lineHeight: 1.5, 
+                          marginBottom: 16,
+                          flex: 1,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden"
+                        }}>
+                          {player.bio?.split('\n\n')[0]?.slice(0, 120)}...
+                        </p>
+                        
+                        {/* Action Row */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); loadMaster(id); }}
+                            style={{ 
+                              flex: 1,
+                              padding: "10px 16px", 
+                              borderRadius: 8, 
+                              border: "none", 
+                              background: hasGames ? theme.accent : theme.bgAlt, 
+                              color: hasGames ? (theme.id === "light" ? "#fff" : theme.bg) : theme.inkMuted, 
+                              cursor: hasGames ? "pointer" : "default",
+                              fontWeight: 600, 
+                              fontSize: 13,
+                              transition 
+                            }}>
+                            {hasGames ? "View Games" : "No Games Yet"}
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
+                            style={{ 
+                              padding: "10px 16px", 
+                              borderRadius: 8, 
+                              border: `1px solid ${theme.border}`, 
+                              background: "transparent", 
+                              color: theme.ink, 
+                              cursor: "pointer", 
+                              fontWeight: 500, 
+                              fontSize: 13,
+                              transition 
+                            }}>
+                            Biography
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 
                 {/* Custom players from Supabase */}
                 {customPlayers.map(player => (
-                  <div key={player.id} onClick={() => loadMaster(player.id)} style={{
-                    backgroundColor: theme.card,
-                    borderRadius: 16,
-                    overflow: "hidden",
-                    border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    transition,
-                    cursor: "pointer"
-                  }}>
-                    {/* Player Image */}
-                    <div style={{ 
-                      height: 140, 
-                      backgroundColor: theme.bgAlt,
-                      backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center top",
-                      position: "relative",
+                  <div 
+                    key={player.id} 
+                    onClick={() => loadMaster(player.id)} 
+                    style={{
+                      backgroundColor: theme.card,
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                      transition: "all 0.2s ease",
+                      cursor: "pointer",
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
+                      flexDirection: "column",
+                      position: "relative"
+                    }}
+                  >
+                    {/* Custom Badge */}
+                    <div style={{
+                      position: "absolute",
+                      top: 12,
+                      right: 12,
+                      padding: "4px 8px",
+                      background: "rgba(156,39,176,0.9)",
+                      borderRadius: 4,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: "#fff",
+                      zIndex: 1
                     }}>
-                      {!player.image_url && (
-                        <span style={{ fontSize: 48, opacity: 0.6 }}>{player.icon || "♟️"}</span>
-                      )}
-                      <div style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: "30px 14px 10px",
-                        background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
-                        color: "#fff"
+                      CUSTOM
+                    </div>
+                    
+                    {/* Top Section - Image + Basic Info */}
+                    <div style={{ display: "flex", height: 140 }}>
+                      {/* Player Image */}
+                      <div style={{ 
+                        width: 140,
+                        minWidth: 140,
+                        backgroundColor: theme.bgAlt,
+                        backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center top",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
                       }}>
-                        <div style={{ fontSize: 16, fontWeight: "bold" }}>{player.icon} {player.name}</div>
-                        <div style={{ fontSize: 10, opacity: 0.9 }}>{player.nationality}{player.world_champion ? ` • ${player.world_champion}` : ""}</div>
+                        {!player.image_url && (
+                          <div style={{ 
+                            width: 70, 
+                            height: 70, 
+                            borderRadius: "50%", 
+                            background: "rgba(156,39,176,0.2)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 28,
+                            color: "#9C27B0"
+                          }}>
+                            {player.name?.charAt(0) || "?"}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Quick Info */}
+                      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
+                          {player.name}
+                        </div>
+                        <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
+                          {player.nationality || "Unknown"}
+                        </div>
+                        
+                        {/* Key Stats */}
+                        <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                          {player.peak_rating && (
+                            <div>
+                              <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
+                              <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peak_rating}</div>
+                            </div>
+                          )}
+                          {player.world_champion && (
+                            <div>
+                              <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
+                              <div style={{ color: theme.ink, fontWeight: 600 }}>{player.world_champion}</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
-                    {/* Player Info */}
-                    <div style={{ padding: 12 }}>
-                      {/* Stats Row */}
-                      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                        {player.peak_rating && (
-                          <span style={{ padding: "3px 7px", backgroundColor: theme.accentSoft, borderRadius: 4, fontSize: 10, color: theme.accent, fontWeight: 500 }}>
-                            Peak: {player.peak_rating}
-                          </span>
-                        )}
-                        <span style={{ padding: "3px 7px", backgroundColor: "rgba(156,39,176,0.15)", borderRadius: 4, fontSize: 10, color: "#9C27B0", fontWeight: 500 }}>
-                          Custom
-                        </span>
-                      </div>
+                    {/* Bottom Section - Bio + Actions */}
+                    <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
+                      {/* Bio Excerpt */}
+                      <p style={{ 
+                        fontSize: 13, 
+                        color: theme.inkMuted, 
+                        lineHeight: 1.5, 
+                        marginBottom: 16,
+                        flex: 1,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden"
+                      }}>
+                        {player.bio?.slice(0, 120) || "Custom player added via Admin Panel."}...
+                      </p>
                       
-                      {/* Action Buttons */}
-                      <div style={{ display: "flex", gap: 6 }}>
+                      {/* Action Row */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); loadMaster(player.id); }}
-                          style={{ flex: 1, padding: "7px 12px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 11, transition }}>
-                          📚 Games
+                          style={{ 
+                            flex: 1,
+                            padding: "10px 16px", 
+                            borderRadius: 8, 
+                            border: "none", 
+                            background: theme.accent, 
+                            color: theme.id === "light" ? "#fff" : theme.bg, 
+                            cursor: "pointer",
+                            fontWeight: 600, 
+                            fontSize: 13,
+                            transition 
+                          }}>
+                          View Games
                         </button>
                       </div>
                     </div>
@@ -886,7 +1048,6 @@ export default function App() {
               </div>
             </div>
           )}
-
           {(source === "lichess" || source === "chesscom") && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
               <span style={{ fontSize: 12, color: theme.inkMuted, alignSelf: "center", marginRight: 8 }}>Quick:</span>

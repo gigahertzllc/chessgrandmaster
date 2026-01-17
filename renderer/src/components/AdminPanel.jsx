@@ -22,12 +22,12 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   const [playerOverrides, setPlayerOverrides] = useState({});
   const [dbGameCounts, setDbGameCounts] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState(0); // 0-100
   
-  // Player search state
-  const [playerSearch, setPlayerSearch] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchSource, setSearchSource] = useState('lichess'); // 'lichess' or 'chesscom'
+  // Wikipedia search state (for Add New Player)
+  const [wikiSearch, setWikiSearch] = useState('');
+  const [wikiResults, setWikiResults] = useState([]);
+  const [wikiLoading, setWikiLoading] = useState(false);
   
   // Audio state
   const [audioTracks, setAudioTracks] = useState([]);
@@ -53,12 +53,100 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     worldChampion: '',
     bio: '',
     playingStyle: '',
-    era: ''
+    era: '',
+    imageUrl: ''
   });
   
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const newPlayerImageRef = useRef(null);
+
+  // Helper to clear import state
+  const clearImportState = () => {
+    setPgnContent('');
+    setGameCount(0);
+    setPreviewGames([]);
+    setImportStatus(null);
+    setImportProgress(0);
+  };
+
+  // Select player and clear import state
+  const handleSelectPlayer = (playerId) => {
+    if (playerId !== selectedPlayer) {
+      clearImportState();
+    }
+    setSelectedPlayer(playerId);
+    setShowAddPlayerForm(false);
+  };
+
+  // Wikipedia search for player info
+  const searchWikipedia = async (query) => {
+    if (!query.trim()) return;
+    
+    setWikiLoading(true);
+    setWikiResults([]);
+    
+    try {
+      // Search Wikipedia
+      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' chess player')}&format=json&origin=*&srlimit=5`;
+      const searchRes = await fetch(searchUrl);
+      const searchData = await searchRes.json();
+      
+      if (searchData.query?.search?.length > 0) {
+        // Get details for each result
+        const results = [];
+        for (const item of searchData.query.search.slice(0, 3)) {
+          const pageTitle = item.title;
+          
+          // Get page summary and image
+          const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
+          try {
+            const summaryRes = await fetch(summaryUrl);
+            const summaryData = await summaryRes.json();
+            
+            results.push({
+              title: summaryData.title,
+              description: summaryData.description || '',
+              extract: summaryData.extract || '',
+              imageUrl: summaryData.thumbnail?.source || summaryData.originalimage?.source || '',
+              pageUrl: summaryData.content_urls?.desktop?.page || ''
+            });
+          } catch (e) {
+            console.warn('Failed to get Wikipedia summary:', e);
+          }
+        }
+        setWikiResults(results);
+      }
+    } catch (error) {
+      console.error('Wikipedia search error:', error);
+    } finally {
+      setWikiLoading(false);
+    }
+  };
+
+  // Apply Wikipedia result to new player form
+  const applyWikiResult = (result) => {
+    // Extract birth info from extract
+    const birthMatch = result.extract.match(/born\s+(\w+\s+\d+,?\s+\d{4})/i);
+    const deathMatch = result.extract.match(/died\s+(\w+\s+\d+,?\s+\d{4})/i);
+    const nationalityMatch = result.extract.match(/is\s+an?\s+(\w+)\s+chess/i) || result.extract.match(/was\s+an?\s+(\w+)\s+chess/i);
+    const ratingMatch = result.extract.match(/peak.*?rating.*?(\d{4})/i) || result.extract.match(/(\d{4}).*?rating/i);
+    
+    setNewPlayer(prev => ({
+      ...prev,
+      name: result.title,
+      fullName: result.title,
+      bio: result.extract.slice(0, 500) + (result.extract.length > 500 ? '...' : ''),
+      imageUrl: result.imageUrl,
+      born: birthMatch ? birthMatch[1] : prev.born,
+      died: deathMatch ? deathMatch[1] : prev.died,
+      nationality: nationalityMatch ? nationalityMatch[1] : prev.nationality,
+      peakRating: ratingMatch ? ratingMatch[1] : prev.peakRating
+    }));
+    
+    setWikiResults([]);
+    setWikiSearch('');
+  };
 
   const colors = {
     bg: theme?.bg || '#141416',
@@ -649,15 +737,20 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
 
     setImportStatus({ type: 'loading', message: 'Parsing games...' });
     setIsLoading(true);
+    setImportProgress(10);
 
     try {
       // Parse all games
       const games = parsePGN(pgnContent, 0); // 0 = all games
+      setImportProgress(30);
       
-      setImportStatus({ type: 'loading', message: `Importing ${games.length} games to Supabase...` });
+      const playerName = PLAYERS[selectedPlayer]?.name || customPlayers[selectedPlayer]?.name || selectedPlayer;
+      setImportStatus({ type: 'loading', message: `Importing ${games.length} games for ${playerName}...` });
 
       // Save to Supabase master_games table
+      setImportProgress(50);
       const { data, error } = await db.saveMasterGames(selectedPlayer, games);
+      setImportProgress(80);
       
       if (error) {
         throw error;
@@ -669,20 +762,23 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         ...prev,
         [selectedPlayer]: count || 0
       }));
+      
+      setImportProgress(100);
 
       setImportStatus({ 
         type: 'success', 
-        message: `Imported ${data?.count || games.length} games for ${PLAYERS[selectedPlayer]?.name}` 
+        message: `✓ Imported ${data?.count || games.length} games for ${playerName}` 
       });
       
-      // Clear form
-      setPgnContent('');
-      setGameCount(0);
-      setPreviewGames([]);
+      // Clear form after short delay to show success
+      setTimeout(() => {
+        clearImportState();
+      }, 2000);
       
     } catch (error) {
       console.error('Import error:', error);
       setImportStatus({ type: 'error', message: `Import failed: ${error.message}` });
+      setImportProgress(0);
     } finally {
       setIsLoading(false);
     }
@@ -1148,103 +1244,11 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         {/* Sidebar - Player Selection */}
         <div style={styles.sidebar(colors)}>
           
-          {/* Player Search */}
-          <div style={{ marginBottom: 20, padding: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
-            <div style={{ fontSize: 10, color: colors.muted, letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>
-              🔍 SEARCH PLAYERS
-            </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-              <button
-                onClick={() => setSearchSource('lichess')}
-                style={{
-                  flex: 1, padding: '6px 8px', border: 'none', borderRadius: 4,
-                  background: searchSource === 'lichess' ? colors.accent : 'rgba(255,255,255,0.1)',
-                  color: searchSource === 'lichess' ? '#000' : colors.text,
-                  cursor: 'pointer', fontSize: 11, fontWeight: 500
-                }}
-              >Lichess</button>
-              <button
-                onClick={() => setSearchSource('chesscom')}
-                style={{
-                  flex: 1, padding: '6px 8px', border: 'none', borderRadius: 4,
-                  background: searchSource === 'chesscom' ? colors.accent : 'rgba(255,255,255,0.1)',
-                  color: searchSource === 'chesscom' ? '#000' : colors.text,
-                  cursor: 'pointer', fontSize: 11, fontWeight: 500
-                }}
-              >Chess.com</button>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
-                type="text"
-                placeholder="Username..."
-                value={playerSearch}
-                onChange={(e) => setPlayerSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchPlayers()}
-                style={{
-                  flex: 1, padding: '8px 10px',
-                  background: 'rgba(0,0,0,0.3)',
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 6, color: colors.text, fontSize: 12
-                }}
-              />
-              <button
-                onClick={searchPlayers}
-                disabled={searchLoading || !playerSearch.trim()}
-                style={{
-                  padding: '8px 12px', border: 'none', borderRadius: 6,
-                  background: colors.accent, color: '#000',
-                  cursor: searchLoading ? 'wait' : 'pointer', fontSize: 12,
-                  opacity: (!playerSearch.trim() || searchLoading) ? 0.5 : 1
-                }}
-              >
-                {searchLoading ? '...' : '→'}
-              </button>
-            </div>
-            
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                {searchResults.map((result, idx) => (
-                  <div key={idx} style={{
-                    padding: 10, background: 'rgba(255,255,255,0.05)',
-                    borderRadius: 6, marginBottom: 6
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontSize: 16 }}>{result.title ? '🏆' : '♟️'}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 500, color: colors.text, fontSize: 13 }}>
-                          {result.title && <span style={{ color: colors.accent, marginRight: 4 }}>{result.title}</span>}
-                          {result.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: colors.muted }}>
-                          {result.rating && `${result.rating} • `}
-                          {result.country && `${result.country} • `}
-                          {result.source}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => addSearchResultAsPlayer(result)}
-                      style={{
-                        width: '100%', padding: '8px',
-                        background: `${colors.accent}30`, border: `1px solid ${colors.accent}`,
-                        borderRadius: 4, color: colors.accent, cursor: 'pointer',
-                        fontSize: 11, fontWeight: 600
-                      }}
-                    >
-                      + Add as Custom Player
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
           <h3 style={styles.sidebarTitle(colors)}>BUILT-IN PLAYERS</h3>
           {Object.entries(PLAYERS).map(([id, player]) => (
             <button
               key={id}
-              onClick={() => { setSelectedPlayer(id); setShowAddPlayerForm(false); }}
+              onClick={() => handleSelectPlayer(id)}
               style={styles.playerBtn(colors, selectedPlayer === id && !showAddPlayerForm)}
             >
               <span style={{ fontSize: 20 }}>{player.icon}</span>
@@ -1264,7 +1268,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
               {Object.entries(customPlayers).map(([id, player]) => (
                 <button
                   key={id}
-                  onClick={() => { setSelectedPlayer(id); setShowAddPlayerForm(false); }}
+                  onClick={() => handleSelectPlayer(id)}
                   style={styles.playerBtn(colors, selectedPlayer === id && !showAddPlayerForm)}
                 >
                   <span style={{ fontSize: 20 }}>{player.icon}</span>
@@ -1281,7 +1285,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
           
           {/* Add New Player Button */}
           <button
-            onClick={() => setShowAddPlayerForm(true)}
+            onClick={() => { clearImportState(); setShowAddPlayerForm(true); }}
             style={{
               ...styles.playerBtn(colors, showAddPlayerForm),
               marginTop: 20,
@@ -1301,9 +1305,119 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
           {showAddPlayerForm ? (
             <div style={styles.section(colors)}>
               <h3 style={styles.sectionTitle(colors)}>➕ Add New Player</h3>
+              
+              {/* Wikipedia Search */}
+              <div style={{ 
+                background: `${colors.accent}15`, 
+                border: `1px solid ${colors.accent}40`,
+                borderRadius: 12, 
+                padding: 16, 
+                marginBottom: 24 
+              }}>
+                <label style={{ ...styles.label(colors), color: colors.accent, marginBottom: 8, display: 'block' }}>
+                  🔍 Search Wikipedia for Player Info
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    value={wikiSearch}
+                    onChange={(e) => setWikiSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && searchWikipedia(wikiSearch)}
+                    placeholder="Enter player name (e.g., Hikaru Nakamura)"
+                    style={{ ...styles.input(colors), flex: 1 }}
+                  />
+                  <button
+                    onClick={() => searchWikipedia(wikiSearch)}
+                    disabled={wikiLoading || !wikiSearch.trim()}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: colors.accent,
+                      color: '#fff',
+                      fontWeight: 600,
+                      cursor: wikiLoading || !wikiSearch.trim() ? 'not-allowed' : 'pointer',
+                      opacity: wikiLoading || !wikiSearch.trim() ? 0.5 : 1
+                    }}
+                  >
+                    {wikiLoading ? '...' : 'Search'}
+                  </button>
+                </div>
+                
+                {/* Wikipedia Results */}
+                {wikiResults.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    {wikiResults.map((result, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => applyWikiResult(result)}
+                        style={{
+                          display: 'flex',
+                          gap: 12,
+                          padding: 12,
+                          background: colors.card,
+                          borderRadius: 8,
+                          marginBottom: 8,
+                          cursor: 'pointer',
+                          border: `1px solid ${colors.border}`,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.borderColor = colors.accent}
+                        onMouseOut={(e) => e.currentTarget.style.borderColor = colors.border}
+                      >
+                        {result.imageUrl && (
+                          <img 
+                            src={result.imageUrl} 
+                            alt="" 
+                            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }}
+                          />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: colors.text, marginBottom: 2 }}>{result.title}</div>
+                          <div style={{ fontSize: 11, color: colors.accent, marginBottom: 4 }}>{result.description}</div>
+                          <div style={{ fontSize: 12, color: colors.muted, lineHeight: 1.4 }}>
+                            {result.extract?.slice(0, 150)}...
+                          </div>
+                        </div>
+                        <div style={{ 
+                          padding: '4px 8px', 
+                          background: `${colors.accent}20`, 
+                          borderRadius: 4, 
+                          fontSize: 11, 
+                          color: colors.accent,
+                          alignSelf: 'center'
+                        }}>
+                          Use
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
               <p style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>
-                Create a new player profile. All data is stored in Supabase.
+                {newPlayer.name ? 'Edit the details below or search again.' : 'Or fill in the details manually:'}
               </p>
+              
+              {/* Image Preview */}
+              {newPlayer.imageUrl && (
+                <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <img 
+                    src={newPlayer.imageUrl} 
+                    alt="Player" 
+                    style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 12 }}
+                  />
+                  <div>
+                    <div style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Image from Wikipedia</div>
+                    <button
+                      onClick={() => setNewPlayer(p => ({ ...p, imageUrl: '' }))}
+                      style={{ fontSize: 11, color: colors.error, background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
               
               <div style={styles.formRow}>
                 <div style={styles.formGroup(colors)}>
@@ -1592,6 +1706,23 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     Import PGN for {currentPlayer.name}
                   </h3>
                   
+                  {/* Current player indicator */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8, 
+                    marginBottom: 16,
+                    padding: '8px 12px',
+                    background: `${colors.accent}15`,
+                    borderRadius: 8,
+                    border: `1px solid ${colors.accent}30`
+                  }}>
+                    <span style={{ fontSize: 20 }}>{currentPlayer.icon}</span>
+                    <span style={{ color: colors.text }}>
+                      Importing to: <strong>{currentPlayer.name}</strong>
+                    </span>
+                  </div>
+                  
                   {/* File Upload */}
                   <div style={styles.uploadArea(colors)} onClick={() => fileInputRef.current?.click()}>
                     <input
@@ -1606,9 +1737,42 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     <div style={{ fontSize: 13, opacity: 0.7 }}>Games will be stored in Supabase</div>
                   </div>
 
+                  {/* Progress Bar */}
+                  {importProgress > 0 && importProgress < 100 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        marginBottom: 6,
+                        fontSize: 12,
+                        color: colors.muted
+                      }}>
+                        <span>Importing...</span>
+                        <span>{importProgress}%</span>
+                      </div>
+                      <div style={{ 
+                        height: 8, 
+                        background: colors.border, 
+                        borderRadius: 4, 
+                        overflow: 'hidden' 
+                      }}>
+                        <div style={{ 
+                          height: '100%', 
+                          width: `${importProgress}%`, 
+                          background: colors.accent,
+                          borderRadius: 4,
+                          transition: 'width 0.3s ease'
+                        }} />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Status */}
               {importStatus && (
-                <div style={styles.status(colors, importStatus.type)}>
+                <div style={{
+                  ...styles.status(colors, importStatus.type),
+                  marginTop: 16
+                }}>
                   {importStatus.type === 'loading' && '⏳ '}
                   {importStatus.type === 'success' && '✅ '}
                   {importStatus.type === 'error' && '❌ '}
@@ -1648,7 +1812,24 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                       cursor: (isLoading || !supabase) ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    {isLoading ? 'Importing...' : `Import ${gameCount.toLocaleString()} Games to Supabase`}
+                    {isLoading ? 'Importing...' : `Import ${gameCount.toLocaleString()} Games for ${currentPlayer.name}`}
+                  </button>
+                  
+                  {/* Clear Button */}
+                  <button
+                    onClick={clearImportState}
+                    style={{
+                      marginTop: 8,
+                      padding: '8px 16px',
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border}`,
+                      background: 'transparent',
+                      color: colors.muted,
+                      cursor: 'pointer',
+                      fontSize: 13
+                    }}
+                  >
+                    Clear
                   </button>
                 </div>
               )}
