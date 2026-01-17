@@ -435,7 +435,7 @@ export default function App() {
         setImportedGames(prev => [...saved.map(g => ({ id: g.id, white: g.white, black: g.black, result: g.result, date: g.date, event: g.event, pgn: g.pgn })), ...prev]);
       }
       setShowImportModal(false); setImportText("");
-    } catch (e) { alert(e.message); }
+    } catch (e) { setError(e.message); }
     setImportLoading(false);
   };
 
@@ -445,7 +445,7 @@ export default function App() {
       if (error) throw error;
       setImportedGames(prev => prev.filter(g => g.id !== id));
       if (selectedGame?.id === id) setSelectedGame(null);
-    } catch (e) { alert(e.message); }
+    } catch (e) { setError(e.message); }
   };
 
   const displayGames = source === "classics" ? (searchResults.length > 0 ? searchResults : games) : games;

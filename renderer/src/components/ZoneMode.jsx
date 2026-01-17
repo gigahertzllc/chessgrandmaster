@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Chess } from "chess.js";
 import Board2D from "./cm-board/components/Board2D.jsx";
+import Board3D from "./cm-board/components/Board3D.jsx";
 import { listBoardThemes } from "./cm-board/themes/boardThemes.js";
 import { getLesson, getAllBooks, getLessonsByBook } from "../data/lessons.js";
 import { getAudioManager } from "../audio/AudioManager.js";
@@ -28,6 +29,9 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
   const [showThemes, setShowThemes] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const autoPlayRef = useRef(null);
+  
+  // 2D/3D board view toggle
+  const [boardView, setBoardView] = useState("2d");
   
   // Audio Manager state
   const audioManager = useMemo(() => getAudioManager(), []);
@@ -339,7 +343,24 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
                 <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2, justifyContent: "center" }}>
                   {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
                 </div>
-                <Board2D chess={chess} fen={fen} size={420} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
+                
+                {/* Board - 2D or 3D */}
+                {boardView === "3d" ? (
+                  <Board3D 
+                    key={`3d-${fen}`}
+                    chess={chess} 
+                    size={420} 
+                    orientation={orientation} 
+                    interactive={false} 
+                    lastMove={lastMove} 
+                    themeId={boardThemeId}
+                    cameraPreset="classic34"
+                    animations={true}
+                  />
+                ) : (
+                  <Board2D chess={chess} fen={fen} size={420} orientation={orientation} interactive={false} lastMove={lastMove} themeId={boardThemeId} vignette={true} />
+                )}
+                
                 {/* Captured by white */}
                 <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, justifyContent: "center" }}>
                   {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
@@ -369,6 +390,42 @@ export default function ZoneMode({ initialGame = null, initialLesson = null, onC
                 <button onClick={() => setOrientation(o => o === "w" ? "b" : "w")} style={{
                   padding: "12px 16px", borderRadius: 8, border: "none", background: theme.accentSoft, color: theme.ink, cursor: "pointer", fontSize: 14,
                 }}>↻</button>
+                
+                {/* 2D/3D Toggle */}
+                <div style={{ 
+                  display: "flex", 
+                  background: "rgba(0,0,0,0.3)", 
+                  borderRadius: 8, 
+                  overflow: "hidden",
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <button 
+                    onClick={() => setBoardView("2d")}
+                    style={{
+                      padding: "10px 14px", 
+                      border: "none", 
+                      background: boardView === "2d" ? theme.accent : "transparent",
+                      color: boardView === "2d" ? "#000" : theme.ink, 
+                      cursor: "pointer", 
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition
+                    }}
+                  >2D</button>
+                  <button 
+                    onClick={() => setBoardView("3d")}
+                    style={{
+                      padding: "10px 14px", 
+                      border: "none", 
+                      background: boardView === "3d" ? theme.accent : "transparent",
+                      color: boardView === "3d" ? "#000" : theme.ink, 
+                      cursor: "pointer", 
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition
+                    }}
+                  >3D</button>
+                </div>
               </div>
             </div>
 
