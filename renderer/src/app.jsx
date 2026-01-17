@@ -1,16 +1,16 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.5.4
+ * Version: 1.5.5
  * Last Updated: January 17, 2026
  * 
- * v1.5.4 - Audio Management in Admin Panel
- *   - Drag & drop audio upload in Admin Panel
- *   - Automatic ID3 tag reading (title, artist, album, artwork)
- *   - Audio stored in Supabase Storage
- *   - Track metadata in audio_tracks table
- *   - Mode assignment (zone, casual, puzzle, analysis, menu)
- *   - AudioManager loads from Supabase first, fallback to static files
+ * v1.5.5 - Zone Mode Redesign + Player Search
+ *   - Zone Mode: Large board on left, sidebar on right
+ *   - Zone Mode: Track toast notification when songs change
+ *   - Zone Mode: Settings panel for 2D/3D, themes, music
+ *   - Admin Panel: Search Lichess/Chess.com for players
+ *   - Admin Panel: Add found players as custom players
  * 
+ * v1.5.4 - Audio Management in Admin Panel
  * v1.5.3 - Real Add Player Feature
  * v1.5.2 - Audio & Migration Fixes
  * v1.5.1 - Supabase Storage & Pixabay Audio
@@ -40,7 +40,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.5.4";
+const APP_VERSION = "1.5.5";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography

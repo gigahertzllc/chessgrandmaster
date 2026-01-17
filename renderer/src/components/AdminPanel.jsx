@@ -23,6 +23,12 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   const [dbGameCounts, setDbGameCounts] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   
+  // Player search state
+  const [playerSearch, setPlayerSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchSource, setSearchSource] = useState('lichess'); // 'lichess' or 'chesscom'
+  
   // Audio state
   const [audioTracks, setAudioTracks] = useState([]);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -308,6 +314,116 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         ? prev.modes.filter(m => m !== mode)
         : [...prev.modes, mode]
     }));
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLAYER SEARCH - Search Lichess/Chess.com for players
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const searchPlayers = async () => {
+    if (!playerSearch.trim()) return;
+    
+    setSearchLoading(true);
+    setSearchResults([]);
+    
+    try {
+      if (searchSource === 'lichess') {
+        await searchLichess(playerSearch.trim());
+      } else {
+        await searchChessCom(playerSearch.trim());
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+      setImportStatus({ type: 'error', message: `Search failed: ${err.message}` });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const searchLichess = async (username) => {
+    // Get user profile
+    const userRes = await fetch(`https://lichess.org/api/user/${encodeURIComponent(username)}`);
+    if (!userRes.ok) {
+      setImportStatus({ type: 'error', message: 'Player not found on Lichess' });
+      return;
+    }
+    
+    const user = await userRes.json();
+    
+    // Build player info
+    const player = {
+      source: 'lichess',
+      username: user.username,
+      name: user.profile?.realName || user.username,
+      title: user.title || null,
+      rating: user.perfs?.classical?.rating || user.perfs?.rapid?.rating || user.perfs?.blitz?.rating,
+      country: user.profile?.country,
+      bio: user.profile?.bio,
+      playCount: user.count?.all || 0,
+      url: `https://lichess.org/@/${user.username}`,
+      createdAt: user.createdAt,
+    };
+    
+    setSearchResults([player]);
+    setImportStatus({ type: 'success', message: `Found: ${player.name}` });
+  };
+
+  const searchChessCom = async (username) => {
+    const userRes = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username.toLowerCase())}`);
+    if (!userRes.ok) {
+      setImportStatus({ type: 'error', message: 'Player not found on Chess.com' });
+      return;
+    }
+    
+    const user = await userRes.json();
+    
+    // Get stats
+    let rating = null;
+    try {
+      const statsRes = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username.toLowerCase())}/stats`);
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        rating = stats.chess_rapid?.last?.rating || stats.chess_blitz?.last?.rating || stats.chess_bullet?.last?.rating;
+      }
+    } catch {}
+    
+    const player = {
+      source: 'chesscom',
+      username: user.username,
+      name: user.name || user.username,
+      title: user.title || null,
+      rating,
+      country: user.country?.split('/').pop(),
+      bio: null,
+      playCount: null,
+      url: user.url,
+      createdAt: user.joined * 1000,
+    };
+    
+    setSearchResults([player]);
+    setImportStatus({ type: 'success', message: `Found: ${player.name}` });
+  };
+
+  const addSearchResultAsPlayer = (result) => {
+    // Pre-fill the new player form with search result data
+    setNewPlayer({
+      name: result.name || result.username,
+      fullName: result.name || '',
+      icon: result.title ? '🏆' : '♟️',
+      born: '',
+      died: '',
+      birthPlace: '',
+      nationality: result.country || '',
+      titles: result.title || '',
+      peakRating: result.rating?.toString() || '',
+      worldChampion: '',
+      bio: result.bio || `${result.source === 'lichess' ? 'Lichess' : 'Chess.com'} player: ${result.url}`,
+      playingStyle: '',
+      era: 'Modern'
+    });
+    setShowAddPlayerForm(true);
+    setSearchResults([]);
+    setPlayerSearch('');
   };
 
   // Generate player ID from name
@@ -1031,6 +1147,99 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
       <div style={styles.content}>
         {/* Sidebar - Player Selection */}
         <div style={styles.sidebar(colors)}>
+          
+          {/* Player Search */}
+          <div style={{ marginBottom: 20, padding: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 8 }}>
+            <div style={{ fontSize: 10, color: colors.muted, letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>
+              🔍 SEARCH PLAYERS
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              <button
+                onClick={() => setSearchSource('lichess')}
+                style={{
+                  flex: 1, padding: '6px 8px', border: 'none', borderRadius: 4,
+                  background: searchSource === 'lichess' ? colors.accent : 'rgba(255,255,255,0.1)',
+                  color: searchSource === 'lichess' ? '#000' : colors.text,
+                  cursor: 'pointer', fontSize: 11, fontWeight: 500
+                }}
+              >Lichess</button>
+              <button
+                onClick={() => setSearchSource('chesscom')}
+                style={{
+                  flex: 1, padding: '6px 8px', border: 'none', borderRadius: 4,
+                  background: searchSource === 'chesscom' ? colors.accent : 'rgba(255,255,255,0.1)',
+                  color: searchSource === 'chesscom' ? '#000' : colors.text,
+                  cursor: 'pointer', fontSize: 11, fontWeight: 500
+                }}
+              >Chess.com</button>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                placeholder="Username..."
+                value={playerSearch}
+                onChange={(e) => setPlayerSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && searchPlayers()}
+                style={{
+                  flex: 1, padding: '8px 10px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6, color: colors.text, fontSize: 12
+                }}
+              />
+              <button
+                onClick={searchPlayers}
+                disabled={searchLoading || !playerSearch.trim()}
+                style={{
+                  padding: '8px 12px', border: 'none', borderRadius: 6,
+                  background: colors.accent, color: '#000',
+                  cursor: searchLoading ? 'wait' : 'pointer', fontSize: 12,
+                  opacity: (!playerSearch.trim() || searchLoading) ? 0.5 : 1
+                }}
+              >
+                {searchLoading ? '...' : '→'}
+              </button>
+            </div>
+            
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {searchResults.map((result, idx) => (
+                  <div key={idx} style={{
+                    padding: 10, background: 'rgba(255,255,255,0.05)',
+                    borderRadius: 6, marginBottom: 6
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 16 }}>{result.title ? '🏆' : '♟️'}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, color: colors.text, fontSize: 13 }}>
+                          {result.title && <span style={{ color: colors.accent, marginRight: 4 }}>{result.title}</span>}
+                          {result.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: colors.muted }}>
+                          {result.rating && `${result.rating} • `}
+                          {result.country && `${result.country} • `}
+                          {result.source}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => addSearchResultAsPlayer(result)}
+                      style={{
+                        width: '100%', padding: '8px',
+                        background: `${colors.accent}30`, border: `1px solid ${colors.accent}`,
+                        borderRadius: 4, color: colors.accent, cursor: 'pointer',
+                        fontSize: 11, fontWeight: 600
+                      }}
+                    >
+                      + Add as Custom Player
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
           <h3 style={styles.sidebarTitle(colors)}>BUILT-IN PLAYERS</h3>
           {Object.entries(PLAYERS).map(([id, player]) => (
             <button
