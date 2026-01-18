@@ -3,329 +3,214 @@ import { Chess } from "chess.js";
 import Board from "./Board.jsx";
 
 /**
- * Play vs Bot Component with Built-in Chess Engine
+ * Play vs Bot Component - Stockfish CDN Edition
  * 
- * Uses a simple evaluation + search that works without external dependencies.
+ * Uses Stockfish.js loaded from CDN for strong chess engine play.
+ * Skill levels 1-20 map to Stockfish's Skill Level UCI option.
  */
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SIMPLE CHESS ENGINE
-// ═══════════════════════════════════════════════════════════════════════════
-
-const PIECE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-
-// Piece-square tables for positional evaluation
-const PST = {
-  p: [
-    0,  0,  0,  0,  0,  0,  0,  0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-    5,  5, 10, 25, 25, 10,  5,  5,
-    0,  0,  0, 20, 20,  0,  0,  0,
-    5, -5,-10,  0,  0,-10, -5,  5,
-    5, 10, 10,-20,-20, 10, 10,  5,
-    0,  0,  0,  0,  0,  0,  0,  0
-  ],
-  n: [
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50
-  ],
-  b: [
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20
-  ],
-  r: [
-    0,  0,  0,  0,  0,  0,  0,  0,
-    5, 10, 10, 10, 10, 10, 10,  5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    0,  0,  0,  5,  5,  0,  0,  0
-  ],
-  q: [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-    -5,  0,  5,  5,  5,  5,  0, -5,
-    0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-  ],
-  k: [
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-    20, 20,  0,  0,  0,  0, 20, 20,
-    20, 30, 10,  0,  0, 10, 30, 20
-  ]
-};
-
-function squareToIndex(square) {
-  const file = square.charCodeAt(0) - 97;
-  const rank = parseInt(square[1]) - 1;
-  return (7 - rank) * 8 + file;
-}
-
-function evaluateBoard(chess) {
-  const board = chess.board();
-  let score = 0;
-  
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const piece = board[r][c];
-      if (!piece) continue;
-      
-      const idx = r * 8 + c;
-      const pieceValue = PIECE_VALUES[piece.type];
-      const pstValue = PST[piece.type]?.[piece.color === 'w' ? idx : 63 - idx] || 0;
-      
-      if (piece.color === 'w') {
-        score += pieceValue + pstValue;
-      } else {
-        score -= pieceValue + pstValue;
-      }
-    }
-  }
-  
-  // Mobility bonus
-  const moves = chess.moves().length;
-  score += (chess.turn() === 'w' ? 1 : -1) * moves * 2;
-  
-  return score;
-}
-
-function minimax(chess, depth, alpha, beta, maximizing) {
-  if (depth === 0 || chess.isGameOver()) {
-    return evaluateBoard(chess);
-  }
-  
-  const moves = chess.moves();
-  
-  if (maximizing) {
-    let maxEval = -Infinity;
-    for (const move of moves) {
-      chess.move(move);
-      const evalScore = minimax(chess, depth - 1, alpha, beta, false);
-      chess.undo();
-      maxEval = Math.max(maxEval, evalScore);
-      alpha = Math.max(alpha, evalScore);
-      if (beta <= alpha) break;
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (const move of moves) {
-      chess.move(move);
-      const evalScore = minimax(chess, depth - 1, alpha, beta, true);
-      chess.undo();
-      minEval = Math.min(minEval, evalScore);
-      beta = Math.min(beta, evalScore);
-      if (beta <= alpha) break;
-    }
-    return minEval;
-  }
-}
-
-function findBestMove(chess, skillLevel = 10) {
-  const moves = chess.moves({ verbose: true });
-  if (moves.length === 0) return null;
-  
-  // Adjust search depth based on skill level
-  const depth = Math.max(1, Math.min(4, Math.floor(skillLevel / 5)));
-  
-  // Add some randomness for lower skill levels
-  const randomFactor = Math.max(0, (20 - skillLevel) / 20);
-  
-  const isMaximizing = chess.turn() === 'w';
-  let bestMove = null;
-  let bestScore = isMaximizing ? -Infinity : Infinity;
-  
-  const scoredMoves = [];
-  
-  for (const move of moves) {
-    chess.move(move);
-    const score = minimax(chess, depth - 1, -Infinity, Infinity, !isMaximizing);
-    chess.undo();
-    
-    scoredMoves.push({ move, score });
-    
-    if (isMaximizing) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = move;
-      }
-    } else {
-      if (score < bestScore) {
-        bestScore = score;
-        bestMove = move;
-      }
-    }
-  }
-  
-  // For lower skill levels, sometimes pick a suboptimal move
-  if (randomFactor > 0 && Math.random() < randomFactor) {
-    scoredMoves.sort((a, b) => isMaximizing ? b.score - a.score : a.score - b.score);
-    const topMoves = scoredMoves.slice(0, Math.max(3, Math.floor(moves.length * 0.3)));
-    const randomIdx = Math.floor(Math.random() * topMoves.length);
-    return topMoves[randomIdx].move;
-  }
-  
-  return bestMove;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// AUDIO
-// ═══════════════════════════════════════════════════════════════════════════
-
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
-
-function playSound(freq, duration = 0.1) {
+// Sound effects
+function playMoveSound(captured) {
   try {
-    if (!audioCtx) audioCtx = new AudioContext();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.frequency.value = freq;
-    osc.type = "sine";
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
+    const audio = new Audio(captured ? "/audio/capture.mp3" : "/audio/move.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
   } catch (e) {}
 }
 
-function playMoveSound(capture) {
-  playSound(capture ? 300 : 600, 0.1);
-}
-
-function playEndSound() {
-  playSound(440, 0.3);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════
-
 function formatTime(secs) {
-  return `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export default function PlayVsBot({ profile, onBack }) {
   const chessRef = useRef(new Chess());
+  const workerRef = useRef(null);
+  const pendingMoveRef = useRef(false);
+
   const [fen, setFen] = useState(chessRef.current.fen());
-  const [phase, setPhase] = useState("setup");
-  const [playerColor, setPlayerColor] = useState("w");
-  const [orientation, setOrientation] = useState("w");
   const [history, setHistory] = useState([]);
   const [lastMove, setLastMove] = useState(null);
+  const [phase, setPhase] = useState("setup"); // setup | playing | ended
   const [result, setResult] = useState(null);
+  const [playerColor, setPlayerColor] = useState("w");
+  const [orientation, setOrientation] = useState("w");
   const [thinking, setThinking] = useState(false);
+  const [engineReady, setEngineReady] = useState(false);
+  const [engineError, setEngineError] = useState(null);
   
+  // Timer state
   const [useTimer, setUseTimer] = useState(false);
   const [playerTime, setPlayerTime] = useState(600);
   const [botTime, setBotTime] = useState(600);
-  const timerRef = useRef(null);
 
+  // Initialize Stockfish worker
   useEffect(() => {
-    if (phase === "setup") setOrientation(playerColor);
-  }, [playerColor, phase]);
+    const worker = new Worker(
+      new URL("../engine/stockfish.worker.js", import.meta.url),
+      { type: "classic" }
+    );
+    workerRef.current = worker;
 
-  // Timer
+    worker.onmessage = (evt) => {
+      const msg = evt.data;
+
+      if (msg.type === "ready") {
+        setEngineReady(true);
+        setEngineError(null);
+      }
+
+      if (msg.type === "error") {
+        console.error("Stockfish error:", msg.message);
+        setEngineError(msg.message);
+      }
+
+      if (msg.type === "engine_line") {
+        const line = String(msg.line ?? "");
+
+        // Parse bestmove response
+        if (line.startsWith("bestmove ") && pendingMoveRef.current) {
+          pendingMoveRef.current = false;
+          const parts = line.split(" ");
+          const bestMove = parts[1];
+
+          if (bestMove && bestMove !== "(none)") {
+            // Parse UCI move (e.g., "e2e4" or "e7e8q" for promotion)
+            const from = bestMove.slice(0, 2);
+            const to = bestMove.slice(2, 4);
+            const promotion = bestMove.length > 4 ? bestMove[4] : undefined;
+
+            const chess = chessRef.current;
+            try {
+              const move = chess.move({ from, to, promotion });
+              if (move) {
+                playMoveSound(move.captured);
+                setFen(chess.fen());
+                setHistory(h => [...h, move.san]);
+                setLastMove({ from, to });
+                checkGameOver(chess);
+              }
+            } catch (e) {
+              console.error("Engine move failed:", e);
+            }
+          }
+          setThinking(false);
+        }
+      }
+    };
+
+    worker.postMessage({ type: "init" });
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  // Timer countdown
   useEffect(() => {
-    if (phase !== "playing" || !useTimer) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-    timerRef.current = setInterval(() => {
+    if (!useTimer || phase !== "playing") return;
+    
+    const interval = setInterval(() => {
       const chess = chessRef.current;
-      const myTurn = chess.turn() === playerColor;
-      if (myTurn && !thinking) {
+      const isPlayerTurn = chess.turn() === playerColor;
+      
+      if (isPlayerTurn) {
         setPlayerTime(t => {
-          if (t <= 1) { endGame(playerColor === "w" ? "0-1" : "1-0", "Time"); return 0; }
+          if (t <= 1) {
+            endGame(playerColor === "w" ? "0-1" : "1-0", "Time out");
+            return 0;
+          }
           return t - 1;
         });
-      } else if (!myTurn) {
+      } else {
         setBotTime(t => {
-          if (t <= 1) { endGame(playerColor === "w" ? "1-0" : "0-1", "Time"); return 0; }
+          if (t <= 1) {
+            endGame(playerColor === "w" ? "1-0" : "0-1", "Time out");
+            return 0;
+          }
           return t - 1;
         });
       }
     }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [phase, useTimer, playerColor, thinking]);
-
-  const endGame = useCallback((res, reason) => {
-    playEndSound();
-    setPhase("ended");
-    setResult({ result: res, reason });
-  }, []);
+    
+    return () => clearInterval(interval);
+  }, [useTimer, phase, playerColor]);
 
   const checkGameOver = useCallback((chess) => {
-    if (chess.isGameOver()) {
-      let res, reason;
-      if (chess.isCheckmate()) {
-        res = chess.turn() === "w" ? "0-1" : "1-0";
-        reason = "Checkmate";
-      } else if (chess.isStalemate()) {
-        res = "½-½"; reason = "Stalemate";
-      } else if (chess.isDraw()) {
-        res = "½-½"; reason = "Draw";
-      } else {
-        res = "½-½"; reason = "Game Over";
-      }
-      endGame(res, reason);
+    if (chess.isCheckmate()) {
+      const winner = chess.turn() === "w" ? "0-1" : "1-0";
+      endGame(winner, "Checkmate");
+      return true;
+    }
+    if (chess.isStalemate()) {
+      endGame("½-½", "Stalemate");
+      return true;
+    }
+    if (chess.isDraw()) {
+      endGame("½-½", "Draw");
+      return true;
+    }
+    if (chess.isThreefoldRepetition()) {
+      endGame("½-½", "Threefold repetition");
+      return true;
+    }
+    if (chess.isInsufficientMaterial()) {
+      endGame("½-½", "Insufficient material");
       return true;
     }
     return false;
-  }, [endGame]);
+  }, []);
 
+  const endGame = useCallback((result, reason) => {
+    setPhase("ended");
+    setResult({ result, reason });
+  }, []);
+
+  // Request engine move via Stockfish worker
   const makeEngineMove = useCallback(() => {
-    const chess = chessRef.current;
-    setThinking(true);
+    if (!workerRef.current || !engineReady) return;
     
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      const best = findBestMove(chess, profile?.skillLevel || 10);
-      
-      if (best) {
-        const move = chess.move(best);
-        if (move) {
-          playMoveSound(move.captured);
-          setFen(chess.fen());
-          setLastMove({ from: best.from, to: best.to });
-          setHistory(h => [...h, move.san]);
-          checkGameOver(chess);
-        }
-      }
-      setThinking(false);
-    }, 300 + Math.random() * 500);
-  }, [profile, checkGameOver]);
+    const chess = chessRef.current;
+    if (chess.isGameOver()) return;
+
+    setThinking(true);
+    pendingMoveRef.current = true;
+
+    // Set skill level for this profile
+    workerRef.current.postMessage({ 
+      type: "set_profile", 
+      profile 
+    });
+
+    // Request analysis
+    workerRef.current.postMessage({
+      type: "analyze",
+      fen: chess.fen(),
+      profile,
+      movetimeMs: profile?.moveTimeMs ?? 500
+    });
+  }, [profile, engineReady]);
+
+  // Trigger engine move when it's bot's turn
+  useEffect(() => {
+    if (phase !== "playing" || !engineReady) return;
+    
+    const chess = chessRef.current;
+    const isBotTurn = chess.turn() !== playerColor;
+    
+    if (isBotTurn && !thinking && !chess.isGameOver()) {
+      const timer = setTimeout(makeEngineMove, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [fen, phase, playerColor, engineReady, thinking, makeEngineMove]);
 
   const onPlayerMove = useCallback((move) => {
     if (phase !== "playing" || thinking) return;
     const chess = chessRef.current;
     if (chess.turn() !== playerColor) return;
-    
+
     try {
       const result = chess.move(move);
       if (result) {
@@ -333,13 +218,10 @@ export default function PlayVsBot({ profile, onBack }) {
         setFen(chess.fen());
         setLastMove({ from: move.from, to: move.to });
         setHistory(h => [...h, result.san]);
-        
-        if (!checkGameOver(chess)) {
-          setTimeout(makeEngineMove, 300);
-        }
+        checkGameOver(chess);
       }
     } catch (e) {}
-  }, [phase, thinking, playerColor, checkGameOver, makeEngineMove]);
+  }, [phase, thinking, playerColor, checkGameOver]);
 
   const startGame = useCallback(() => {
     const chess = chessRef.current;
@@ -352,11 +234,7 @@ export default function PlayVsBot({ profile, onBack }) {
     setPlayerTime(600);
     setBotTime(600);
     setOrientation(playerColor);
-    
-    if (playerColor === "b") {
-      setTimeout(makeEngineMove, 500);
-    }
-  }, [playerColor, makeEngineMove]);
+  }, [playerColor]);
 
   const resign = useCallback(() => {
     endGame(playerColor === "w" ? "0-1" : "1-0", "Resignation");
@@ -385,7 +263,8 @@ export default function PlayVsBot({ profile, onBack }) {
             <div>
               <div style={{ fontWeight: 700 }}>{profile.label}</div>
               <div style={{ fontSize: 12, opacity: 0.7 }}>
-                {phase === "playing" && !myTurn && thinking ? "Thinking..." : ""}
+                {!engineReady ? "Loading Stockfish..." : 
+                 phase === "playing" && !myTurn && thinking ? "Thinking..." : ""}
               </div>
             </div>
           </div>
@@ -435,9 +314,23 @@ export default function PlayVsBot({ profile, onBack }) {
 
       {/* Controls side */}
       <div style={{ width: 280, display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Engine status */}
+        {engineError && (
+          <div style={{ background: "rgba(198,40,40,0.3)", borderRadius: 8, padding: 12, fontSize: 13 }}>
+            ⚠️ Engine error: {engineError}
+          </div>
+        )}
+
         {phase === "setup" && (
           <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 20 }}>
             <h3 style={{ margin: "0 0 16px 0" }}>Game Setup</h3>
+            
+            {!engineReady && (
+              <div style={{ marginBottom: 16, padding: 12, background: "rgba(255,255,255,0.05)", borderRadius: 8, fontSize: 13 }}>
+                ⏳ Loading Stockfish engine...
+              </div>
+            )}
+            
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 8 }}>PLAY AS</div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -461,8 +354,14 @@ export default function PlayVsBot({ profile, onBack }) {
               </label>
             </div>
             <button onClick={startGame}
-              style={{ width: "100%", padding: 16, borderRadius: 8, border: "none", background: "#4CAF50", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>
-              ▶ Start Game
+              disabled={!engineReady}
+              style={{ 
+                width: "100%", padding: 16, borderRadius: 8, border: "none", 
+                background: engineReady ? "#4CAF50" : "#666", 
+                color: "#fff", fontSize: 16, fontWeight: 700, 
+                cursor: engineReady ? "pointer" : "not-allowed" 
+              }}>
+              {engineReady ? "▶ Start Game" : "⏳ Loading..."}
             </button>
           </div>
         )}
@@ -470,7 +369,7 @@ export default function PlayVsBot({ profile, onBack }) {
         {phase === "playing" && (
           <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 12, padding: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700 }}>{thinking ? "🤔 Thinking..." : "♟️ Playing"}</span>
+              <span style={{ fontWeight: 700 }}>{thinking ? "🤔 Stockfish thinking..." : "♟️ Playing"}</span>
               <button onClick={resign} style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#c62828", color: "#fff", cursor: "pointer" }}>
                 Resign
               </button>
@@ -512,7 +411,7 @@ export default function PlayVsBot({ profile, onBack }) {
             <span style={{ fontSize: 32 }}>{profile.avatar}</span>
             <div>
               <div style={{ fontWeight: 700 }}>{profile.label}</div>
-              <div style={{ fontSize: 12, opacity: 0.6 }}>Skill: {profile.skillLevel}/20</div>
+              <div style={{ fontSize: 12, opacity: 0.6 }}>Skill: {profile.skillLevel}/20 • Stockfish</div>
             </div>
           </div>
           <div style={{ fontSize: 13, opacity: 0.8 }}>{profile.description}</div>

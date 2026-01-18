@@ -1,7 +1,28 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.6.2
- * Last Updated: January 17, 2026
+ * Version: 1.6.5
+ * Last Updated: January 18, 2026
+ * 
+ * v1.6.5 - Stockfish CDN Integration
+ *   - Restored Stockfish engine via CDN (cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2)
+ *   - ~3000+ ELO strength at max skill level
+ *   - Skill levels 1-20 map to Stockfish's UCI Skill Level option
+ *   - Replaced JavaScript minimax engine with real Stockfish
+ * 
+ * v1.6.4 - Improved Chess Engine (deprecated)
+ *   - JavaScript minimax with alpha-beta pruning (replaced by Stockfish)
+ *   - Skill levels now meaningful:
+ *     - 1-5: Beginner (depth 2, makes mistakes)
+ *     - 6-10: Casual (depth 3)
+ *     - 11-15: Intermediate (depth 4)
+ *     - 16-18: Advanced (depth 5)
+ *     - 19-20: Expert (depth 6)
+ * 
+ * v1.6.3 - PGN Import Duplicate Fix
+ *   - FIXED: "ON CONFLICT" error when importing PGN with duplicate entries
+ *   - Game IDs now include: players + date + ECO + round + index + move hash
+ *   - Deduplication before database insert
+ *   - Better handling of PGN files with unknown dates/rounds
  * 
  * v1.6.2 - Masters Section Redesign
  *   - Complete visual redesign with larger, cleaner cards (320px min)
@@ -102,7 +123,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.6.2";
+const APP_VERSION = "1.6.5";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography

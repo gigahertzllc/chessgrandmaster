@@ -81,7 +81,7 @@ function parseGame(gameStr, index = 0) {
   const fullPgn = buildPGN(headers, cleanMoves);
   
   return {
-    id: generateId(headers, index),
+    id: generateId(headers, index, cleanMoves),
     white: headers.White,
     black: headers.Black,
     result: headers.Result || "*",
@@ -131,13 +131,24 @@ function buildPGN(headers, moves) {
 /**
  * Generate a unique ID for a game
  */
-function generateId(headers, index = 0) {
-  const white = (headers.White || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
-  const black = (headers.Black || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
+function generateId(headers, index = 0, moves = '') {
+  const white = (headers.White || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+  const black = (headers.Black || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
   const date = (headers.Date || "").replace(/\./g, '').replace(/\?/g, '');
   const round = (headers.Round || "").replace(/[^0-9]/g, '');
-  const event = (headers.Event || "").toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
-  return `${white}-${black}-${event}-${date}-${round || index}`;
+  const eco = (headers.ECO || "").replace(/[^A-Za-z0-9]/g, '');
+  
+  // Create a simple hash from the first 50 chars of moves for uniqueness
+  let moveHash = 0;
+  const movesSample = (moves || '').slice(0, 50);
+  for (let i = 0; i < movesSample.length; i++) {
+    moveHash = ((moveHash << 5) - moveHash) + movesSample.charCodeAt(i);
+    moveHash = moveHash & moveHash; // Convert to 32bit integer
+  }
+  const hashStr = Math.abs(moveHash).toString(36).slice(0, 4);
+  
+  // Always include index for uniqueness
+  return `${white}-${black}-${date || 'nodate'}-${eco || 'x'}-${round || 'r'}-${index}-${hashStr}`;
 }
 
 /**

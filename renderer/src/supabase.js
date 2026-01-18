@@ -112,9 +112,21 @@ export const db = {
   saveMasterGames: async (playerId, games) => {
     if (!supabase) return { error: { message: 'Supabase not configured' }, count: 0 };
     
-    const rows = games.map(game => ({
+    // Deduplicate games by game_id (keep first occurrence)
+    const seenIds = new Set();
+    const uniqueGames = [];
+    for (const game of games) {
+      if (!seenIds.has(game.id)) {
+        seenIds.add(game.id);
+        uniqueGames.push(game);
+      }
+    }
+    
+    console.log(`Deduped: ${games.length} -> ${uniqueGames.length} games`);
+    
+    const rows = uniqueGames.map((game, idx) => ({
       player_id: playerId,
-      game_id: game.id,
+      game_id: game.id || `${playerId}-game-${idx}`, // Fallback ID
       white: game.white,
       black: game.black,
       white_elo: game.whiteElo || null,
@@ -137,9 +149,18 @@ export const db = {
     
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
+      
+      // Double-check no duplicates within chunk
+      const chunkIds = new Set();
+      const deduplicatedChunk = chunk.filter(row => {
+        if (chunkIds.has(row.game_id)) return false;
+        chunkIds.add(row.game_id);
+        return true;
+      });
+      
       const { data, error } = await supabase
         .from('master_games')
-        .upsert(chunk, { onConflict: 'player_id,game_id' })
+        .upsert(deduplicatedChunk, { onConflict: 'player_id,game_id' })
         .select();
       
       if (error) {
