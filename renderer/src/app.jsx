@@ -1,7 +1,23 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.6.5
+ * Version: 1.7.0
  * Last Updated: January 18, 2026
+ * 
+ * v1.7.0 - Chess Coach Module
+ *   - New AI-powered Chess Coach training system
+ *   - Skill assessment to establish baseline (5 questions)
+ *   - Structured curriculum with beginner/intermediate/advanced modules
+ *   - Training sessions: lessons, tactical puzzles, practice games
+ *   - Game Analyzer: paste PGN, get move-by-move feedback
+ *   - Progress tracking across 5 skill categories:
+ *     - Tactics (forks, pins, skewers, discoveries, back rank, mating patterns)
+ *     - Opening Principles (development, center control, king safety)
+ *     - Middlegame Strategy (planning, pawn structure, piece activity, attack/defense)
+ *     - Endgame Technique (basic mates, king activity, pawn/rook endings)
+ *     - Calculation (depth, accuracy, visualization)
+ *   - Friendly coach personality with encouraging feedback
+ *   - XP-based skill leveling system (levels 1-5 per skill)
+ *   - Rating projection based on skill levels
  * 
  * v1.6.5 - Stockfish CDN Integration
  *   - Restored Stockfish engine via CDN (cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2)
@@ -112,6 +128,7 @@ import PlayVsBot from "./components/PlayVsBot.jsx";
 import ZoneMode from "./components/ZoneMode.jsx";
 import PlayerProfile from "./components/PlayerProfile.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
+import { ChessCoach } from "./coaching/index.js";
 import { personalities } from "./engine/personalities.js";
 import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "./data/famousGames.js";
 import { supabase, auth, db } from "./supabase.js";
@@ -123,7 +140,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.6.5";
+const APP_VERSION = "1.7.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -227,6 +244,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showZoneMode, setShowZoneMode] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showChessCoach, setShowChessCoach] = useState(false);
+  const [coachingProfile, setCoachingProfile] = useState(null);
   
   // Library state
   const [source, setSource] = useState("classics");
@@ -656,8 +675,12 @@ export default function App() {
           </div>
 
           <nav style={{ display: "flex", gap: 32 }}>
-            {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "training", label: "Training" }].map(tab => (
-              <button key={tab.id} onClick={() => tab.id === "training" ? setShowZoneMode(true) : (setActiveTab(tab.id), tab.id === "play" && setGrandmasterView("select"))}
+            {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "coach", label: "Coach" }, { id: "training", label: "Zone" }].map(tab => (
+              <button key={tab.id} onClick={() => {
+                if (tab.id === "training") setShowZoneMode(true);
+                else if (tab.id === "coach") setShowChessCoach(true);
+                else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
+              }}
                 style={{
                   background: "none", border: "none", fontFamily: fonts.body, fontSize: 12, fontWeight: 500,
                   letterSpacing: "0.1em", textTransform: "uppercase", color: theme.ink,
@@ -1263,6 +1286,23 @@ export default function App() {
 
       {/* Zone Mode */}
       {showZoneMode && <ZoneMode initialGame={selectedGame} onClose={() => setShowZoneMode(false)} theme={theme} themeId={themeId} onThemeChange={changeTheme} boardThemeId={boardThemeId} onBoardThemeChange={changeBoardTheme} />}
+
+      {/* Chess Coach Modal */}
+      {showChessCoach && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: theme.bg,
+          zIndex: 1000,
+          overflow: "auto"
+        }}>
+          <ChessCoach
+            userProfile={coachingProfile}
+            onUpdateProfile={setCoachingProfile}
+            onBack={() => setShowChessCoach(false)}
+          />
+        </div>
+      )}
 
       {/* Admin Panel Modal */}
       {showAdminPanel && (
