@@ -2038,6 +2038,7 @@ function SystemDiagnostics({ colors }) {
     storage: { status: 'checking', message: 'Checking...' }
   });
   const [isChecking, setIsChecking] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
 
   // Run all checks
   const runDiagnostics = async () => {
@@ -2067,23 +2068,23 @@ function SystemDiagnostics({ colors }) {
       if (aiRes.ok) {
         const data = await aiRes.json();
         if (data.text) {
-          setStatus(s => ({ ...s, ai: { status: 'ok', message: 'Connected - Claude API working' } }));
+          setStatus(s => ({ ...s, ai: { status: 'ok', message: 'Connected' } }));
         } else {
-          setStatus(s => ({ ...s, ai: { status: 'warning', message: 'Connected but empty response' } }));
+          setStatus(s => ({ ...s, ai: { status: 'warning', message: 'Empty response' } }));
         }
       } else {
         const err = await aiRes.json().catch(() => ({}));
         if (err.message?.includes('API key')) {
-          setStatus(s => ({ ...s, ai: { status: 'error', message: 'API key not configured in Vercel' } }));
+          setStatus(s => ({ ...s, ai: { status: 'error', message: 'API key missing' } }));
         } else {
-          setStatus(s => ({ ...s, ai: { status: 'error', message: `Error: ${err.error || aiRes.status}` } }));
+          setStatus(s => ({ ...s, ai: { status: 'error', message: 'Connection failed' } }));
         }
       }
     } catch (e) {
       if (e.message?.includes('Failed to fetch')) {
-        setStatus(s => ({ ...s, ai: { status: 'warning', message: 'API route not available (local dev?)' } }));
+        setStatus(s => ({ ...s, ai: { status: 'warning', message: 'Not available locally' } }));
       } else {
-        setStatus(s => ({ ...s, ai: { status: 'error', message: `Error: ${e.message}` } }));
+        setStatus(s => ({ ...s, ai: { status: 'error', message: 'Error' } }));
       }
     }
 
@@ -2092,15 +2093,19 @@ function SystemDiagnostics({ colors }) {
       if (typeof supabase !== 'undefined' && supabase) {
         const { data, error } = await supabase.from('chess_games').select('id').limit(1);
         if (error) {
-          setStatus(s => ({ ...s, supabase: { status: 'error', message: `Error: ${error.message}` } }));
+          if (error.message.includes('does not exist')) {
+            setStatus(s => ({ ...s, supabase: { status: 'warning', message: 'Tables not created' } }));
+          } else {
+            setStatus(s => ({ ...s, supabase: { status: 'error', message: 'Connection error' } }));
+          }
         } else {
-          setStatus(s => ({ ...s, supabase: { status: 'ok', message: 'Connected - Database accessible' } }));
+          setStatus(s => ({ ...s, supabase: { status: 'ok', message: 'Connected' } }));
         }
       } else {
-        setStatus(s => ({ ...s, supabase: { status: 'warning', message: 'Not configured (add env vars)' } }));
+        setStatus(s => ({ ...s, supabase: { status: 'error', message: 'Not configured' } }));
       }
     } catch (e) {
-      setStatus(s => ({ ...s, supabase: { status: 'error', message: `Error: ${e.message}` } }));
+      setStatus(s => ({ ...s, supabase: { status: 'error', message: 'Error' } }));
     }
 
     // Check Stockfish
@@ -2108,50 +2113,44 @@ function SystemDiagnostics({ colors }) {
       const stockfishUrl = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
       const sfRes = await fetch(stockfishUrl, { method: 'HEAD' });
       if (sfRes.ok) {
-        setStatus(s => ({ ...s, stockfish: { status: 'ok', message: 'CDN accessible - Engine ready' } }));
+        setStatus(s => ({ ...s, stockfish: { status: 'ok', message: 'Ready' } }));
       } else {
-        setStatus(s => ({ ...s, stockfish: { status: 'error', message: 'CDN not reachable' } }));
+        setStatus(s => ({ ...s, stockfish: { status: 'error', message: 'CDN error' } }));
       }
     } catch (e) {
-      setStatus(s => ({ ...s, stockfish: { status: 'warning', message: 'Could not verify CDN' } }));
+      setStatus(s => ({ ...s, stockfish: { status: 'warning', message: 'Cannot verify' } }));
     }
 
     // Check Audio API
     try {
       if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-        setStatus(s => ({ ...s, audio: { status: 'ok', message: 'Web Audio API supported' } }));
+        setStatus(s => ({ ...s, audio: { status: 'ok', message: 'Supported' } }));
       } else {
-        setStatus(s => ({ ...s, audio: { status: 'error', message: 'Web Audio not supported' } }));
+        setStatus(s => ({ ...s, audio: { status: 'error', message: 'Not supported' } }));
       }
     } catch (e) {
-      setStatus(s => ({ ...s, audio: { status: 'error', message: 'Audio check failed' } }));
+      setStatus(s => ({ ...s, audio: { status: 'error', message: 'Error' } }));
     }
 
     // Check Voice Synthesis
     try {
       if ('speechSynthesis' in window) {
         const voices = window.speechSynthesis.getVoices();
-        setStatus(s => ({ 
-          ...s, 
-          voice: { 
-            status: 'ok', 
-            message: `${voices.length || 'Multiple'} voices available` 
-          } 
-        }));
+        setStatus(s => ({ ...s, voice: { status: 'ok', message: `${voices.length || '✓'} voices` } }));
       } else {
-        setStatus(s => ({ ...s, voice: { status: 'error', message: 'Speech synthesis not supported' } }));
+        setStatus(s => ({ ...s, voice: { status: 'error', message: 'Not supported' } }));
       }
     } catch (e) {
-      setStatus(s => ({ ...s, voice: { status: 'error', message: 'Voice check failed' } }));
+      setStatus(s => ({ ...s, voice: { status: 'error', message: 'Error' } }));
     }
 
     // Check LocalStorage
     try {
       localStorage.setItem('_test_', '1');
       localStorage.removeItem('_test_');
-      setStatus(s => ({ ...s, storage: { status: 'ok', message: 'LocalStorage working' } }));
+      setStatus(s => ({ ...s, storage: { status: 'ok', message: 'Available' } }));
     } catch (e) {
-      setStatus(s => ({ ...s, storage: { status: 'error', message: 'LocalStorage blocked' } }));
+      setStatus(s => ({ ...s, storage: { status: 'error', message: 'Blocked' } }));
     }
 
     setIsChecking(false);
@@ -2162,193 +2161,237 @@ function SystemDiagnostics({ colors }) {
     runDiagnostics();
   }, []);
 
-  // Status indicator component
-  const StatusBadge = ({ status }) => {
-    const config = {
-      ok: { bg: '#4CAF50', icon: '✓', label: 'OK' },
-      warning: { bg: '#FF9800', icon: '⚠', label: 'Warning' },
-      error: { bg: '#f44336', icon: '✗', label: 'Error' },
-      checking: { bg: '#666', icon: '◌', label: 'Checking' }
-    };
-    const c = config[status] || config.checking;
-    
-    return (
-      <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 12px',
-        borderRadius: 20,
-        background: c.bg,
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 600
-      }}>
-        {c.icon} {c.label}
-      </span>
-    );
-  };
+  // Count statuses
+  const counts = Object.values(status).reduce((acc, s) => {
+    acc[s.status] = (acc[s.status] || 0) + 1;
+    return acc;
+  }, {});
 
   const services = [
-    { 
-      key: 'ai', 
-      name: 'AI Coach (Claude API)', 
-      icon: '🤖',
-      description: 'Powers personalized coaching feedback'
-    },
-    { 
-      key: 'supabase', 
-      name: 'Database (Supabase)', 
-      icon: '🗄️',
-      description: 'Stores games, players, and audio'
-    },
-    { 
-      key: 'stockfish', 
-      name: 'Chess Engine (Stockfish)', 
-      icon: '♟️',
-      description: 'Analyzes positions and plays as AI opponent'
-    },
-    { 
-      key: 'audio', 
-      name: 'Audio System', 
-      icon: '🎵',
-      description: 'Lo-fi music in Zone Mode'
-    },
-    { 
-      key: 'voice', 
-      name: 'Voice Synthesis', 
-      icon: '🔊',
-      description: 'Text-to-speech for coach feedback'
-    },
-    { 
-      key: 'storage', 
-      name: 'Local Storage', 
-      icon: '💾',
-      description: 'Saves preferences and settings'
-    }
+    { key: 'ai', name: 'AI Coach', sub: 'Claude API' },
+    { key: 'supabase', name: 'Database', sub: 'Supabase' },
+    { key: 'stockfish', name: 'Engine', sub: 'Stockfish' },
+    { key: 'audio', name: 'Audio', sub: 'Web Audio' },
+    { key: 'voice', name: 'Voice', sub: 'TTS' },
+    { key: 'storage', name: 'Storage', sub: 'Local' }
   ];
 
+  const statusColors = {
+    ok: '#10b981',
+    warning: '#f59e0b', 
+    error: '#ef4444',
+    checking: '#6b7280'
+  };
+
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-      <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div style={{ 
+      flex: 1, 
+      overflow: 'auto', 
+      padding: '32px 24px',
+      background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, transparent 100%)'
+    }}>
+      <div style={{ maxWidth: 600, margin: '0 auto' }}>
         
-        {/* Header */}
+        {/* Summary Header */}
         <div style={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: 24 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          marginBottom: 32
         }}>
           <div>
-            <h3 style={{ margin: 0, color: colors.text, fontSize: 20 }}>
-              System Diagnostics
-            </h3>
-            <p style={{ margin: '4px 0 0', color: colors.muted, fontSize: 14 }}>
-              Check if all services are working correctly
-            </p>
+            <div style={{ 
+              fontSize: 13, 
+              color: colors.muted, 
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              marginBottom: 4
+            }}>
+              System Status
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {counts.ok > 0 && (
+                <span style={{ color: statusColors.ok, fontSize: 14, fontWeight: 500 }}>
+                  {counts.ok} operational
+                </span>
+              )}
+              {counts.warning > 0 && (
+                <span style={{ color: statusColors.warning, fontSize: 14, fontWeight: 500 }}>
+                  {counts.warning} warning
+                </span>
+              )}
+              {counts.error > 0 && (
+                <span style={{ color: statusColors.error, fontSize: 14, fontWeight: 500 }}>
+                  {counts.error} issue{counts.error > 1 ? 's' : ''}
+                </span>
+              )}
+              {counts.checking > 0 && (
+                <span style={{ color: statusColors.checking, fontSize: 14 }}>
+                  checking...
+                </span>
+              )}
+            </div>
           </div>
+          
           <button
             onClick={runDiagnostics}
             disabled={isChecking}
             style={{
-              padding: '10px 20px',
-              background: isChecking ? colors.muted : colors.accent,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
+              padding: '8px 16px',
+              background: 'transparent',
+              color: isChecking ? colors.muted : colors.text,
+              border: `1px solid ${colors.border || 'rgba(255,255,255,0.15)'}`,
+              borderRadius: 6,
               cursor: isChecking ? 'not-allowed' : 'pointer',
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8
+              transition: 'all 0.2s',
+              opacity: isChecking ? 0.5 : 1
             }}
           >
-            {isChecking ? '⟳ Checking...' : '🔄 Re-check All'}
+            {isChecking ? 'Checking...' : 'Refresh'}
           </button>
         </div>
 
-        {/* Status Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {services.map(service => (
-            <div 
-              key={service.key}
-              style={{
-                background: colors.cardBg || 'rgba(255,255,255,0.05)',
-                borderRadius: 12,
-                padding: 16,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                border: `1px solid ${colors.border || 'rgba(255,255,255,0.1)'}`
-              }}
-            >
-              <div style={{ 
-                fontSize: 28, 
-                width: 48, 
-                textAlign: 'center' 
-              }}>
-                {service.icon}
-              </div>
-              
-              <div style={{ flex: 1 }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 12, 
-                  marginBottom: 4 
-                }}>
-                  <span style={{ 
+        {/* Status Grid */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 1,
+          background: colors.border || 'rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          overflow: 'hidden'
+        }}>
+          {services.map((service, i) => {
+            const s = status[service.key];
+            const isLast = i >= services.length - 2;
+            
+            return (
+              <div 
+                key={service.key}
+                style={{
+                  background: colors.bg || '#1a1a1a',
+                  padding: '20px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12
+                }}
+              >
+                {/* Status Dot */}
+                <div style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: statusColors[s?.status] || statusColors.checking,
+                  boxShadow: s?.status === 'ok' ? `0 0 8px ${statusColors.ok}` : 'none',
+                  flexShrink: 0
+                }} />
+                
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ 
                     color: colors.text, 
-                    fontWeight: 600, 
-                    fontSize: 15 
+                    fontSize: 14, 
+                    fontWeight: 500,
+                    marginBottom: 2
                   }}>
                     {service.name}
-                  </span>
-                  <StatusBadge status={status[service.key]?.status} />
+                  </div>
+                  <div style={{ 
+                    color: colors.muted, 
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {s?.message || service.sub}
+                  </div>
                 </div>
-                <p style={{ 
-                  margin: 0, 
-                  color: colors.muted, 
-                  fontSize: 13 
-                }}>
-                  {status[service.key]?.message || service.description}
-                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Setup Section - Collapsible */}
+        <div style={{ marginTop: 24 }}>
+          <button
+            onClick={() => setShowSetup(!showSetup)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              background: 'rgba(255,255,255,0.03)',
+              border: `1px solid ${colors.border || 'rgba(255,255,255,0.08)'}`,
+              borderRadius: 8,
+              color: colors.muted,
+              fontSize: 13,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>Setup Guide</span>
+            <span style={{ 
+              transform: showSetup ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s'
+            }}>
+              ▼
+            </span>
+          </button>
+          
+          {showSetup && (
+            <div style={{
+              marginTop: 8,
+              padding: 16,
+              background: 'rgba(255,255,255,0.02)',
+              borderRadius: 8,
+              border: `1px solid ${colors.border || 'rgba(255,255,255,0.08)'}`,
+              fontSize: 13,
+              color: colors.muted,
+              lineHeight: 1.8
+            }}>
+              <div style={{ marginBottom: 12 }}>
+                <strong style={{ color: colors.text }}>AI Coach</strong>
+                <br />
+                Add <code style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '2px 6px', 
+                  borderRadius: 4,
+                  fontSize: 12
+                }}>ANTHROPIC_API_KEY</code> in Vercel → Settings → Environment Variables
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <strong style={{ color: colors.text }}>Database</strong>
+                <br />
+                Add <code style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '2px 6px', 
+                  borderRadius: 4,
+                  fontSize: 12
+                }}>VITE_SUPABASE_URL</code> and <code style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  padding: '2px 6px', 
+                  borderRadius: 4,
+                  fontSize: 12
+                }}>VITE_SUPABASE_ANON_KEY</code>
+              </div>
+              <div style={{ color: colors.muted, opacity: 0.7 }}>
+                Engine, Audio, Voice, and Storage require no setup.
               </div>
             </div>
-          ))}
+          )}
         </div>
 
-        {/* Setup Help */}
+        {/* Footer */}
         <div style={{
           marginTop: 32,
-          padding: 20,
-          background: 'rgba(33, 150, 243, 0.1)',
-          borderRadius: 12,
-          border: '1px solid rgba(33, 150, 243, 0.3)'
-        }}>
-          <h4 style={{ margin: '0 0 12px', color: colors.text }}>
-            📋 Setup Checklist
-          </h4>
-          <div style={{ color: colors.muted, fontSize: 14, lineHeight: 1.8 }}>
-            <div><strong>AI Coach:</strong> Add <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: 4 }}>ANTHROPIC_API_KEY</code> to Vercel Environment Variables</div>
-            <div><strong>Database:</strong> Add <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: 4 }}>VITE_SUPABASE_URL</code> and <code style={{ background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: 4 }}>VITE_SUPABASE_ANON_KEY</code></div>
-            <div><strong>Stockfish:</strong> Loads from CDN automatically (no setup needed)</div>
-            <div><strong>Audio & Voice:</strong> Built into browser (no setup needed)</div>
-          </div>
-        </div>
-
-        {/* Version Info */}
-        <div style={{
-          marginTop: 24,
-          padding: 16,
-          background: 'rgba(255,255,255,0.03)',
-          borderRadius: 8,
           textAlign: 'center',
           color: colors.muted,
-          fontSize: 13
+          fontSize: 12,
+          opacity: 0.5
         }}>
-          ChessGrandmaster v1.7.0 • Built with React + Vite
+          ChessGrandmaster v1.7.0
         </div>
       </div>
     </div>
