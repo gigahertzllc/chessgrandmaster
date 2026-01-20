@@ -2067,15 +2067,41 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                 {/* Current Image */}
                 <div style={styles.imagePreview(colors)}>
                   <h4 style={{ margin: '0 0 12px 0' }}>Current Image</h4>
-                  <img
-                    src={currentPlayer.imageUrl}
-                    alt={currentPlayer.name}
-                    style={styles.previewImg}
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                  <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
-                    {playerOverrides[selectedPlayer]?.customImageUrl ? '✅ Custom (Supabase Storage)' : '📷 Wikipedia default'}
+                  {currentPlayer.imageUrl ? (
+                    <img
+                      src={currentPlayer.imageUrl}
+                      alt={currentPlayer.name}
+                      style={styles.previewImg}
+                      onError={(e) => { 
+                        e.target.style.display = 'none'; 
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ 
+                    display: currentPlayer.imageUrl ? 'none' : 'flex',
+                    width: 120, 
+                    height: 120, 
+                    borderRadius: 8,
+                    background: colors.bg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 48,
+                    color: colors.muted,
+                    border: `2px dashed ${colors.border}`
+                  }}>
+                    {currentPlayer.icon || '?'}
                   </div>
+                  <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
+                    {!currentPlayer.imageUrl ? '⚠️ No image set' :
+                     playerOverrides[selectedPlayer]?.customImageUrl ? '✅ Custom (Supabase Storage)' : 
+                     '📷 Wikipedia/Default'}
+                  </div>
+                  {currentPlayer.imageUrl && (
+                    <div style={{ fontSize: 10, opacity: 0.4, marginTop: 4, wordBreak: 'break-all', maxWidth: 150 }}>
+                      {currentPlayer.imageUrl.substring(0, 50)}...
+                    </div>
+                  )}
                 </div>
 
                 {/* Upload New */}
@@ -2100,33 +2126,83 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                   <button
                     onClick={async () => {
                       setImportStatus({ type: 'loading', message: 'Fetching from Wikipedia...' });
+                      console.log('Fetching image for:', currentPlayer.name);
+                      
                       try {
+                        // Try exact name first, then search
+                        let imageUrl = null;
                         const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(currentPlayer.name)}`;
+                        console.log('Fetching:', searchUrl);
+                        
                         const res = await fetch(searchUrl);
                         const data = await res.json();
+                        console.log('Wikipedia response:', data);
                         
-                        if (data.thumbnail?.source || data.originalimage?.source) {
-                          const imageUrl = data.thumbnail?.source || data.originalimage?.source;
+                        if (data.thumbnail?.source) {
+                          imageUrl = data.thumbnail.source;
+                        } else if (data.originalimage?.source) {
+                          imageUrl = data.originalimage.source;
+                        }
+                        
+                        if (!imageUrl) {
+                          setImportStatus({ type: 'error', message: 'No image found on Wikipedia for "' + currentPlayer.name + '"' });
+                          return;
+                        }
+                        
+                        console.log('Found image:', imageUrl);
+                        
+                        // Different handling for custom vs built-in players
+                        if (customPlayers[selectedPlayer]) {
+                          // Custom player - update just the image_url field
+                          console.log('Updating custom player image');
+                          const { error } = await db.updateCustomPlayerImage(selectedPlayer, imageUrl);
                           
-                          // Update in database if custom player
-                          if (customPlayers[selectedPlayer]) {
-                            await db.updateCustomPlayer(selectedPlayer, {
-                              ...customPlayers[selectedPlayer],
-                              imageUrl: imageUrl
-                            });
-                            setCustomPlayers(prev => ({
-                              ...prev,
-                              [selectedPlayer]: { ...prev[selectedPlayer], image_url: imageUrl, imageUrl: imageUrl }
-                            }));
+                          if (error) {
+                            console.error('DB error:', error);
+                            setImportStatus({ type: 'error', message: 'Database error: ' + error.message });
+                            return;
                           }
                           
-                          setImportStatus({ type: 'success', message: 'Image updated from Wikipedia!' });
-                          onPlayersUpdated?.();
+                          // Update local state
+                          setCustomPlayers(prev => ({
+                            ...prev,
+                            [selectedPlayer]: { 
+                              ...prev[selectedPlayer], 
+                              imageUrl: imageUrl 
+                            }
+                          }));
+                          
+                          setImportStatus({ type: 'success', message: '✓ Image updated from Wikipedia!' });
                         } else {
-                          setImportStatus({ type: 'error', message: 'No image found on Wikipedia' });
+                          // Built-in player - use overrides
+                          console.log('Updating built-in player via override');
+                          const updated = {
+                            ...playerOverrides[selectedPlayer],
+                            customImageUrl: imageUrl
+                          };
+                          
+                          const { error } = await db.savePlayerOverride(selectedPlayer, updated);
+                          
+                          if (error) {
+                            console.error('DB error:', error);
+                            setImportStatus({ type: 'error', message: 'Database error: ' + error.message });
+                            return;
+                          }
+                          
+                          setPlayerOverrides(prev => ({
+                            ...prev,
+                            [selectedPlayer]: updated
+                          }));
+                          
+                          setImportStatus({ type: 'success', message: '✓ Image updated from Wikipedia!' });
                         }
+                        
+                        // Notify parent to refresh
+                        onPlayersUpdated?.();
+                        
                       } catch (e) {
-                        setImportStatus({ type: 'error', message: 'Failed to fetch from Wikipedia' });
+                        console.error('Fetch error:', e);
+                        setImportStatus({ type: 'error', message: 'Network error: ' + e.message });
                       }
                     }}
                     style={{
@@ -2546,7 +2622,7 @@ function SystemDiagnostics({ colors }) {
           fontSize: 12,
           opacity: 0.5
         }}>
-          ChessGrandmaster v2.2.0
+          ChessGrandmaster v2.4.1
         </div>
       </div>
     </div>

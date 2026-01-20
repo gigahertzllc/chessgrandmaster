@@ -381,6 +381,15 @@ export const db = {
       updated_at: new Date().toISOString()
     }).eq('id', playerId);
   },
+
+  // Simple image URL update for custom players
+  updateCustomPlayerImage: async (playerId, imageUrl) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' } };
+    return supabase.from('custom_players').update({
+      image_url: imageUrl,
+      updated_at: new Date().toISOString()
+    }).eq('id', playerId);
+  },
   
   getCustomPlayers: async () => {
     if (!supabase) return { data: [], error: null };

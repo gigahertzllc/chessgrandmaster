@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { PLAYERS, getPlayer } from '../data/playerInfo.js';
 
-export default function PlayerProfile({ playerId, onSelectGame, onClose, theme = 'dark' }) {
+export default function PlayerProfile({ playerId, onSelectGame, onViewGames, onClose, theme = 'dark', gameCount = null }) {
   const [player, setPlayer] = useState(null);
   const [activeTab, setActiveTab] = useState('bio');
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -177,9 +177,27 @@ export default function PlayerProfile({ playerId, onSelectGame, onClose, theme =
                     <span>{game}</span>
                   </div>
                 ))}
-                {player.totalGames && (
-                  <div style={styles.totalGames(colors)}>
-                    📊 {player.totalGames.toLocaleString()} games in database
+                {(gameCount > 0 || player.totalGames) && (
+                  <div 
+                    style={{
+                      ...styles.totalGames(colors),
+                      cursor: onViewGames ? 'pointer' : 'default',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => onViewGames && onViewGames(playerId)}
+                    onMouseEnter={(e) => {
+                      if (onViewGames) {
+                        e.target.style.transform = 'scale(1.02)';
+                        e.target.style.backgroundColor = `${colors.accent}30`;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = 'scale(1)';
+                      e.target.style.backgroundColor = `${colors.accent}15`;
+                    }}
+                  >
+                    📊 {(gameCount || player.totalGames || 0).toLocaleString()} games in database
+                    {onViewGames && <span style={{ marginLeft: 8, opacity: 0.7 }}>→ View Games</span>}
                   </div>
                 )}
               </div>

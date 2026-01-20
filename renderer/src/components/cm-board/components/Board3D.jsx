@@ -69,17 +69,22 @@ export default function Board3D({
       const sign = orientation === "w" ? 1 : -1;
       
       if (cameraPreset === "top") {
-        // Bird's eye view
-        camera.position.set(0, 18, 0.01);
+        // Bird's eye view - position based on orientation
+        // Small z offset to prevent gimbal lock, oriented so white/black is at bottom
+        camera.position.set(0, 18, 0.5 * sign);
         camera.lookAt(0, 0, 0);
+        // Ensure "forward" from player's perspective
+        camera.up.set(0, 0, -sign);
       } else if (cameraPreset === "angled") {
-        // Classic 3/4 diagonal view
-        camera.position.set(9 * sign, 10, 9 * sign);
+        // Classic 3/4 diagonal view from player's corner
+        camera.position.set(6 * sign, 12, 10 * sign);
         camera.lookAt(0, 0, 0);
+        camera.up.set(0, 1, 0);
       } else {
-        // "straight" - Default: Straight on from white/black side
+        // "straight" - Straight on from white/black side
         camera.position.set(0, 8, 14 * sign);
         camera.lookAt(0, 0, 0);
+        camera.up.set(0, 1, 0);
       }
     };
     setCamera();

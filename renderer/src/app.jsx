@@ -1,8 +1,38 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.2.0
+ * Version: 2.4.2
  * Last Updated: January 20, 2026
  * 
+ * v2.4.2 - Clickable Game Count in Profile
+ *   - Game count in bio's "Famous Games" tab is now clickable
+ *   - Clicking "X games in database → View Games" navigates to Masters section
+ *   - Shows real game count from Supabase database
+ *   - Falls back to local game count if not in database
+ *   - Loads game counts on initial mount for all built-in players
+ *
+ * v2.4.1 - Image Management Fixes
+ *   - Fixed "Fetch Image from Wikipedia" button with proper error handling
+ *   - Added console logging for debugging image operations
+ *   - Works for both custom players (updates DB) and built-in (uses overrides)
+ *   - Better image preview with placeholder when no image set
+ *   - Shows truncated URL for debugging
+ *   - Added updateCustomPlayerImage() for cleaner image-only updates
+ *
+ * v2.4.0 - Distinct 3D Chess Sets
+ *   - 6 unique geometry styles: Staunton, Modern, Medieval, Baroque, Abstract, Lewis
+ *   - 9 material+geometry combinations with visually distinct pieces
+ *   - Medieval Castle set with fortress-like chunky pieces
+ *   - Lewis Viking set inspired by historic Lewis Chessmen
+ *   - Abstract Geometric set with angular obelisk shapes
+ *   - Each set has dramatically different piece silhouettes
+ *
+ * v2.3.0 - Zone Mode Fixes
+ *   - Music now auto-starts when entering Zone Mode
+ *   - 3D board defaults to Top Down view
+ *   - Fixed 3D board orientation (white at bottom)
+ *   - 3D piece sets now properly change when selected
+ *   - Fixed Board3D key to include all relevant state
+ *
  * v2.2.0 - Seamless Player Management
  *   - One-click "Add" from Wikipedia search results
  *   - Wikipedia image/bio automatically saved to database
@@ -167,7 +197,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.4.2";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -288,6 +318,7 @@ export default function App() {
   const [masterGames, setMasterGames] = useState([]);
   const [customPlayers, setCustomPlayers] = useState([]);
   const [customPlayersLoading, setCustomPlayersLoading] = useState(false);
+  const [dbGameCounts, setDbGameCounts] = useState({}); // Game counts from Supabase
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
   const [error, setError] = useState(null);
@@ -500,6 +531,15 @@ export default function App() {
       const { data, error } = await db.getCustomPlayers();
       if (error) throw error;
       setCustomPlayers(data || []);
+      
+      // Also load game counts for all players
+      const allPlayerIds = [...Object.keys(PLAYERS), ...(data || []).map(p => p.id)];
+      const counts = {};
+      for (const playerId of allPlayerIds) {
+        const { count } = await db.getMasterGameCount(playerId);
+        if (count > 0) counts[playerId] = count;
+      }
+      setDbGameCounts(counts);
     } catch (e) {
       console.error("Error loading custom players:", e);
     }
@@ -512,6 +552,24 @@ export default function App() {
       loadCustomPlayers();
     }
   }, [source]);
+
+  // Load game counts on initial mount for profile display
+  useEffect(() => {
+    const loadGameCounts = async () => {
+      try {
+        const allPlayerIds = Object.keys(PLAYERS);
+        const counts = {};
+        for (const playerId of allPlayerIds) {
+          const { count } = await db.getMasterGameCount(playerId);
+          if (count > 0) counts[playerId] = count;
+        }
+        setDbGameCounts(prev => ({ ...prev, ...counts }));
+      } catch (e) {
+        console.error("Error loading game counts:", e);
+      }
+    };
+    loadGameCounts();
+  }, []);
 
   const loadMaster = async (masterId) => {
     setSelectedMaster(masterId);
@@ -1677,9 +1735,16 @@ export default function App() {
             <PlayerProfile 
               playerId={showPlayerProfile} 
               theme={theme.id}
+              gameCount={dbGameCounts[showPlayerProfile] || getGamesByMaster(showPlayerProfile).length}
               onClose={() => setShowPlayerProfile(null)}
               onSelectGame={(gameName) => {
                 // Could search for the game in the database
+                setShowPlayerProfile(null);
+              }}
+              onViewGames={(playerId) => {
+                // Navigate to Masters section and select this player
+                setSource("masters");
+                setSelectedMaster(playerId);
                 setShowPlayerProfile(null);
               }}
             />

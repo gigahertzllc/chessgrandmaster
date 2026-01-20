@@ -66,14 +66,14 @@ export default function ZoneMode({
   
   // 3D specific settings
   const [pieceSetId, setPieceSetId] = useState("classic_ebony_ivory");
-  const [cameraPreset, setCameraPreset] = useState("straight");
+  const [cameraPreset, setCameraPreset] = useState("top");
   
   // Responsive board size
   const [boardSize, setBoardSize] = useState(580);
   
   // Audio Manager state
   const audioManager = useMemo(() => getAudioManager(), []);
-  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true); // Auto-start music
   const [volume, setVolume] = useState(() => audioManager.getVolume());
   const [currentTrack, setCurrentTrack] = useState(null);
   const [showTrackToast, setShowTrackToast] = useState(false);
@@ -574,7 +574,7 @@ export default function ZoneMode({
             background: isLightTheme ? "#e8e8e6" : "#0a0a0b",
           }}>
             <Board3D 
-              key={`3d-${fen}-${pieceSetId}`}
+              key={`3d-${fen}-${pieceSetId}-${cameraPreset}-${boardThemeId}-${orientation}`}
               chess={chess} 
               size="full"
               orientation={orientation} 
