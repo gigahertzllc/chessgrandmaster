@@ -1447,11 +1447,12 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                 {wikiResults.length > 0 && (
                   <div style={{ marginTop: 12 }}>
                     <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
-                      Click "Add" to instantly add player with Wikipedia data:
+                      Select a player to populate the form:
                     </div>
                     {wikiResults.map((result, idx) => (
                       <div
                         key={idx}
+                        onClick={() => applyWikiResult(result)}
                         style={{
                           display: 'flex',
                           gap: 12,
@@ -1460,7 +1461,11 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                           borderRadius: 8,
                           marginBottom: 8,
                           border: `1px solid ${colors.border}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
                         }}
+                        onMouseOver={(e) => e.currentTarget.style.borderColor = colors.accent}
+                        onMouseOut={(e) => e.currentTarget.style.borderColor = colors.border}
                       >
                         {result.imageUrl && (
                           <img 
@@ -1486,39 +1491,17 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                             {result.extract?.slice(0, 120)}...
                           </div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
-                          <button
-                            onClick={() => quickAddFromWikipedia(result)}
-                            disabled={isLoading}
-                            style={{ 
-                              padding: '8px 16px', 
-                              background: colors.success,
-                              borderRadius: 6, 
-                              border: 'none',
-                              fontSize: 13, 
-                              fontWeight: 600,
-                              color: '#fff',
-                              cursor: isLoading ? 'not-allowed' : 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            ✓ Add
-                          </button>
-                          <button
-                            onClick={() => applyWikiResult(result)}
-                            style={{ 
-                              padding: '6px 12px', 
-                              background: 'transparent',
-                              borderRadius: 6, 
-                              border: `1px solid ${colors.border}`,
-                              fontSize: 11, 
-                              color: colors.muted,
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            Edit first
-                          </button>
+                        <div style={{ 
+                          padding: '8px 16px', 
+                          background: `${colors.accent}20`,
+                          borderRadius: 6, 
+                          fontSize: 13, 
+                          fontWeight: 600,
+                          color: colors.accent,
+                          alignSelf: 'center',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          Select →
                         </div>
                       </div>
                     ))}
@@ -1527,12 +1510,25 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
               </div>
               
               <p style={{ fontSize: 13, color: colors.muted, marginBottom: 20 }}>
-                {newPlayer.name ? 'Edit the details below or search again.' : 'Or fill in the details manually:'}
+                {newPlayer.name ? (
+                  <span style={{ color: colors.success, fontWeight: 500 }}>
+                    ✓ Form populated from Wikipedia! Review the details below and click "Create Player" to save.
+                  </span>
+                ) : 'Or fill in the details manually:'}
               </p>
               
               {/* Image Preview */}
               {newPlayer.imageUrl && (
-                <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ 
+                  marginBottom: 16, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 16,
+                  padding: 12,
+                  background: `${colors.success}15`,
+                  borderRadius: 8,
+                  border: `1px solid ${colors.success}40`
+                }}>
                   <img 
                     src={newPlayer.imageUrl} 
                     alt="Player" 
@@ -1722,7 +1718,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     setShowAddPlayerForm(false);
                     setNewPlayer({
                       name: '', fullName: '', icon: '♟️', born: '', died: '', birthPlace: '',
-                      nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: ''
+                      nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: '', imageUrl: ''
                     });
                   }}
                   style={{
