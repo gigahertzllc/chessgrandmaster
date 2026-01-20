@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { skillCategories, getAllSkills, ratingToSkillLevel } from "./data/skillDefinitions.js";
 import { coachingModules, getAllModules, getModulesByLevel, calculateModuleProgress } from "./data/curriculum.js";
+import { fundamentalsLessons, tacticsLessons, strategyLessons, getLessonById } from "./data/lessonContent.js";
 import CoachingSession from "./CoachingSession.jsx";
 import GameAnalyzer from "./GameAnalyzer.jsx";
 import SkillProgress from "./SkillProgress.jsx";
+import PuzzleTrainer from "./PuzzleTrainer.jsx";
+import InteractiveLesson from "./InteractiveLesson.jsx";
 import { useCoachVoice, VoiceToggleButton, VoiceSettings } from "./useCoachVoice.jsx";
+import useResponsive from "../hooks/useResponsive.js";
 
 /**
  * Chess Coach - Main Training Hub
@@ -174,7 +178,7 @@ function generatePersonalizedWelcome(userProfile, completedSessions, userSkills)
 
 // Main component
 export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
-  const [view, setView] = useState("home"); // home | assess | training | session | analyze | progress
+  const [view, setView] = useState("home"); // home | assess | training | session | analyze | progress | puzzles | lesson
   const [selectedModule, setSelectedModule] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [coachMessage, setCoachMessage] = useState(""); // Start empty, will be set by effect
@@ -185,6 +189,15 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
   const [gameToAnalyze, setGameToAnalyze] = useState(null);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [hasSpokenWelcome, setHasSpokenWelcome] = useState(false);
+  const [puzzleConfig, setPuzzleConfig] = useState({ difficulty: "all", theme: "all", count: 10 });
+  const [puzzleStats, setPuzzleStats] = useState(userProfile?.puzzleStats || { total: 0, correct: 0 });
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [completedLessons, setCompletedLessons] = useState(userProfile?.completedLessons || []);
+  const [lessonStats, setLessonStats] = useState(userProfile?.lessonStats || { completed: 0, exercises: 0 });
+
+  // Responsive viewport
+  const viewport = useResponsive();
+  const { isMobile, isTablet, isDesktop } = viewport;
 
   // Voice synthesis for coach feedback
   const voice = useCoachVoice();
@@ -280,97 +293,287 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
 
   // Render home view
   const renderHome = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 16 : 24 }}>
       {/* Coach welcome */}
       <div style={{
         background: "linear-gradient(135deg, rgba(76,175,80,0.2) 0%, rgba(33,150,243,0.2) 100%)",
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: isMobile ? 12 : 16,
+        padding: isMobile ? 16 : 24,
         display: "flex",
-        gap: 20,
-        alignItems: "flex-start"
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 12 : 20,
+        alignItems: isMobile ? "center" : "flex-start",
+        textAlign: isMobile ? "center" : "left"
       }}>
-        <div style={{ fontSize: 56 }}>🎓</div>
+        <div style={{ fontSize: isMobile ? 40 : 56 }}>🎓</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Chess Coach</div>
-          <div style={{ fontSize: 15, opacity: 0.9, lineHeight: 1.6 }}>{coachMessage}</div>
-          
-          {assessmentNeeded && (
-            <button
-              onClick={startAssessment}
-              style={{
-                marginTop: 16,
-                padding: "12px 24px",
-                background: "#4CAF50",
-                color: "white",
-                border: "none",
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer"
-              }}
-            >
-              🎯 Take Skill Assessment (5 min)
-            </button>
-          )}
+          <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, marginBottom: 8 }}>Chess Coach</div>
+          <div style={{ fontSize: isMobile ? 14 : 15, opacity: 0.9, lineHeight: 1.6 }}>{coachMessage}</div>
           
           {estimatedRating && (
             <div style={{
               marginTop: 12,
               display: "flex",
-              gap: 16,
-              alignItems: "center"
+              gap: isMobile ? 8 : 16,
+              alignItems: "center",
+              flexWrap: "wrap",
+              justifyContent: isMobile ? "center" : "flex-start"
             }}>
               <div style={{
-                padding: "8px 16px",
+                padding: isMobile ? "6px 12px" : "8px 16px",
                 background: "rgba(255,255,255,0.1)",
                 borderRadius: 8,
-                fontSize: 14
+                fontSize: isMobile ? 12 : 14
               }}>
-                Estimated Rating: <strong>{estimatedRating}</strong>
+                Rating: <strong>{estimatedRating}</strong>
               </div>
-              <button
-                onClick={startAssessment}
-                style={{
-                  padding: "8px 16px",
-                  background: "transparent",
-                  color: "#4CAF50",
-                  border: "1px solid #4CAF50",
+              {puzzleStats.total > 0 && (
+                <div style={{
+                  padding: isMobile ? "6px 12px" : "8px 16px",
+                  background: "rgba(76,175,80,0.2)",
                   borderRadius: 8,
-                  fontSize: 13,
-                  cursor: "pointer"
-                }}
-              >
-                Retake Assessment
-              </button>
+                  fontSize: isMobile ? 12 : 14
+                }}>
+                  Puzzles: <strong>{puzzleStats.correct}/{puzzleStats.total}</strong> ({Math.round((puzzleStats.correct/puzzleStats.total)*100)}%)
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick Start - Puzzle Training */}
+      <div style={{
+        background: "linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)",
+        borderRadius: isMobile ? 12 : 16,
+        padding: isMobile ? 16 : 24,
+        cursor: "pointer"
+      }}
+        onClick={() => {
+          setPuzzleConfig({ difficulty: "all", theme: "all", count: 10 });
+          setView("puzzles");
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 12 : 16 }}>
+          <div style={{ fontSize: isMobile ? 32 : 40 }}>⚔️</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, marginBottom: 4 }}>
+              Start Tactical Training
+            </div>
+            <div style={{ opacity: 0.9, fontSize: isMobile ? 12 : 14 }}>
+              Solve real chess puzzles and improve your pattern recognition
+            </div>
+          </div>
+          <div style={{ fontSize: isMobile ? 20 : 24 }}>→</div>
+        </div>
+      </div>
+
+      {/* Training Mode Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(2, 1fr)", gap: isMobile ? 10 : 16 }}>
+        <div 
+          onClick={() => {
+            setPuzzleConfig({ difficulty: 1, theme: "all", count: 10 });
+            setView("puzzles");
+          }}
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: isMobile ? 10 : 12,
+            padding: isMobile ? 14 : 20,
+            cursor: "pointer",
+            border: "1px solid rgba(255,255,255,0.1)",
+            transition: "all 0.2s"
+          }}
+        >
+          <div style={{ fontSize: isMobile ? 22 : 28, marginBottom: isMobile ? 6 : 8 }}>🌱</div>
+          <div style={{ fontWeight: 600, marginBottom: 4, fontSize: isMobile ? 13 : 14 }}>Beginner</div>
+          <div style={{ fontSize: isMobile ? 11 : 13, opacity: 0.7 }}>Mate in 1</div>
+        </div>
+        
+        <div 
+          onClick={() => {
+            setPuzzleConfig({ difficulty: 2, theme: "all", count: 10 });
+            setView("puzzles");
+          }}
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: isMobile ? 10 : 12,
+            padding: isMobile ? 14 : 20,
+            cursor: "pointer",
+            border: "1px solid rgba(255,255,255,0.1)",
+            transition: "all 0.2s"
+          }}
+        >
+          <div style={{ fontSize: 28, marginBottom: 8 }}>💪</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Intermediate Puzzles</div>
+          <div style={{ fontSize: 13, opacity: 0.7 }}>Forks, pins, combinations</div>
+        </div>
+        
+        <div 
+          onClick={() => {
+            setPuzzleConfig({ difficulty: 3, theme: "all", count: 10 });
+            setView("puzzles");
+          }}
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 12,
+            padding: 20,
+            cursor: "pointer",
+            border: "1px solid rgba(255,255,255,0.1)",
+            transition: "all 0.2s"
+          }}
+        >
+          <div style={{ fontSize: 28, marginBottom: 8 }}>🔥</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Advanced Puzzles</div>
+          <div style={{ fontSize: 13, opacity: 0.7 }}>Mate in 2, sacrifices</div>
+        </div>
+        
+        <div 
+          onClick={() => {
+            setPuzzleConfig({ difficulty: "all", theme: "endgame", count: 10 });
+            setView("puzzles");
+          }}
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 12,
+            padding: 20,
+            cursor: "pointer",
+            border: "1px solid rgba(255,255,255,0.1)",
+            transition: "all 0.2s"
+          }}
+        >
+          <div style={{ fontSize: 28, marginBottom: 8 }}>👑</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>Endgame Training</div>
+          <div style={{ fontSize: 13, opacity: 0.7 }}>Essential endgame technique</div>
+        </div>
+      </div>
+
+      {/* Other tools */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         <ActionCard
           icon="📚"
-          title="Training"
-          description="Structured lessons & exercises"
+          title="Lessons"
+          description="Structured curriculum"
           onClick={() => setView("training")}
-          color="#4CAF50"
+          color="#9C27B0"
         />
         <ActionCard
           icon="🔍"
           title="Game Analysis"
-          description="Review your games with AI feedback"
+          description="Review your games"
           onClick={() => setView("analyze")}
           color="#2196F3"
         />
         <ActionCard
           icon="📊"
           title="Progress"
-          description="Track your skill development"
+          description="Track your skills"
           onClick={() => setView("progress")}
           color="#FF9800"
         />
+      </div>
+
+      {/* Interactive Lessons */}
+      <div style={{
+        background: "rgba(0,0,0,0.2)",
+        borderRadius: 12,
+        padding: 20
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 600, opacity: 0.7, marginBottom: 16 }}>
+          📖 INTERACTIVE LESSONS
+        </div>
+        
+        {/* Fundamentals */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10, textTransform: "uppercase" }}>
+            Fundamentals
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+            {Object.entries(fundamentalsLessons).map(([id, lesson]) => (
+              <button
+                key={id}
+                onClick={() => { setSelectedLesson(lesson); setView("lesson"); }}
+                style={{
+                  padding: "14px 16px",
+                  background: completedLessons.includes(id) ? "rgba(76, 175, 80, 0.2)" : "rgba(255,255,255,0.05)",
+                  border: completedLessons.includes(id) ? "1px solid rgba(76, 175, 80, 0.4)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  color: "#fff",
+                  textAlign: "left",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                  {completedLessons.includes(id) && "✓ "}{lesson.title}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>
+                  {lesson.steps?.length || 0} steps
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Tactics */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10, textTransform: "uppercase" }}>
+            Tactics
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+            {Object.entries(tacticsLessons).map(([id, lesson]) => (
+              <button
+                key={id}
+                onClick={() => { setSelectedLesson(lesson); setView("lesson"); }}
+                style={{
+                  padding: "14px 16px",
+                  background: completedLessons.includes(id) ? "rgba(76, 175, 80, 0.2)" : "rgba(255,255,255,0.05)",
+                  border: completedLessons.includes(id) ? "1px solid rgba(76, 175, 80, 0.4)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  color: "#fff",
+                  textAlign: "left",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                  {completedLessons.includes(id) && "✓ "}{lesson.title}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>
+                  {lesson.steps?.length || 0} steps
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Strategy */}
+        <div>
+          <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10, textTransform: "uppercase" }}>
+            Strategy
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+            {Object.entries(strategyLessons).map(([id, lesson]) => (
+              <button
+                key={id}
+                onClick={() => { setSelectedLesson(lesson); setView("lesson"); }}
+                style={{
+                  padding: "14px 16px",
+                  background: completedLessons.includes(id) ? "rgba(76, 175, 80, 0.2)" : "rgba(255,255,255,0.05)",
+                  border: completedLessons.includes(id) ? "1px solid rgba(76, 175, 80, 0.4)" : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  color: "#fff",
+                  textAlign: "left",
+                  cursor: "pointer"
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+                  {completedLessons.includes(id) && "✓ "}{lesson.title}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>
+                  {lesson.steps?.length || 0} steps
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Daily training suggestion */}
@@ -425,6 +628,28 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
           </button>
         </div>
         <SkillOverview skills={userSkills} />
+      </div>
+
+      {/* Stats summary */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 16
+      }}>
+        <div style={{ background: "rgba(76, 175, 80, 0.1)", borderRadius: 12, padding: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#4CAF50" }}>{completedLessons.length}</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Lessons Completed</div>
+        </div>
+        <div style={{ background: "rgba(33, 150, 243, 0.1)", borderRadius: 12, padding: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#2196F3" }}>{puzzleStats.correct}</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Puzzles Solved</div>
+        </div>
+        <div style={{ background: "rgba(255, 152, 0, 0.1)", borderRadius: 12, padding: 16, textAlign: "center" }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#ff9800" }}>
+            {puzzleStats.total > 0 ? Math.round((puzzleStats.correct / puzzleStats.total) * 100) : 0}%
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>Puzzle Accuracy</div>
+        </div>
       </div>
     </div>
   );
@@ -637,9 +862,10 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
   // Main render
   return (
     <div style={{
-      padding: 24,
+      padding: isMobile ? 16 : isTablet ? 20 : 24,
       maxWidth: 900,
-      margin: "0 auto"
+      margin: "0 auto",
+      paddingBottom: isMobile ? "calc(16px + env(safe-area-inset-bottom, 0))" : 24
     }}>
       {view === "home" && renderHome()}
       {view === "training" && renderTraining()}
@@ -678,6 +904,95 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
         <SkillAssessment
           onComplete={completeAssessment}
           onBack={() => setView("home")}
+        />
+      )}
+      
+      {view === "puzzles" && (
+        <PuzzleTrainer
+          difficulty={puzzleConfig.difficulty}
+          theme={puzzleConfig.theme}
+          count={puzzleConfig.count}
+          voice={voice}
+          onComplete={(results) => {
+            // Update puzzle stats
+            const newStats = {
+              total: puzzleStats.total + results.total,
+              correct: puzzleStats.correct + results.correct
+            };
+            setPuzzleStats(newStats);
+            saveProgress({ puzzleStats: newStats });
+            
+            // Update skills based on performance
+            if (results.correct / results.total >= 0.7) {
+              const updates = { tactics: { level: Math.min(5, (userSkills.tactics?.level || 1) + 0.1) } };
+              setUserSkills(prev => ({ ...prev, ...updates }));
+            }
+            
+            setView("home");
+            
+            // Voice feedback
+            if (voice?.isEnabled) {
+              const accuracy = Math.round((results.correct / results.total) * 100);
+              if (accuracy >= 80) {
+                setCoachMessage(`Excellent work! ${accuracy}% accuracy. Your tactical vision is really improving!`);
+              } else if (accuracy >= 60) {
+                setCoachMessage(`Good effort! ${accuracy}% accuracy. Keep practicing and those patterns will become second nature.`);
+              } else {
+                setCoachMessage(`You got ${accuracy}% right. Don't worry, tactics take time. Let's try some easier puzzles to build your confidence.`);
+              }
+            }
+          }}
+          onBack={() => setView("home")}
+        />
+      )}
+
+      {view === "lesson" && selectedLesson && (
+        <InteractiveLesson
+          lesson={selectedLesson}
+          voice={voice}
+          onComplete={(results) => {
+            // Mark lesson as completed
+            const lessonId = Object.entries({ ...fundamentalsLessons, ...tacticsLessons, ...strategyLessons })
+              .find(([id, l]) => l.title === selectedLesson.title)?.[0];
+            
+            if (lessonId && !completedLessons.includes(lessonId)) {
+              const newCompleted = [...completedLessons, lessonId];
+              setCompletedLessons(newCompleted);
+              
+              // Update lesson stats
+              const newStats = {
+                completed: lessonStats.completed + 1,
+                exercises: lessonStats.exercises + (results.totalExercises || 0)
+              };
+              setLessonStats(newStats);
+              
+              // Update skills based on lesson content
+              if (selectedLesson.skillsImproved) {
+                const skillUpdates = {};
+                selectedLesson.skillsImproved.forEach(skillId => {
+                  const current = userSkills[skillId]?.level || 1;
+                  skillUpdates[skillId] = { level: Math.min(5, current + 0.2), xp: (userSkills[skillId]?.xp || 0) + 50 };
+                });
+                setUserSkills(prev => ({ ...prev, ...skillUpdates }));
+              }
+              
+              saveProgress({ 
+                completedLessons: newCompleted, 
+                lessonStats: newStats 
+              });
+            }
+            
+            setSelectedLesson(null);
+            setView("home");
+            
+            if (voice?.isEnabled) {
+              setCoachMessage("Great job completing that lesson! Your understanding is growing stronger.");
+            }
+          }}
+          onBack={() => {
+            setSelectedLesson(null);
+            setView("home");
+          }}
         />
       )}
 

@@ -1,10 +1,22 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.8.0
- * Last Updated: January 18, 2026
+ * Version: 2.1.0
+ * Last Updated: January 20, 2026
  * 
- * v1.8.0 - Modern Chess Concepts
- *   - New AI-powered Chess Coach training system
+ * v2.1.0 - Responsive Mobile UI Overhaul
+ *   - Complete mobile-first responsive design
+ *   - Tablet breakpoint (768px-1024px) optimization  
+ *   - Mobile breakpoint (<768px) with stacked layouts
+ *   - Touch-friendly buttons (min 44px height)
+ *   - Horizontal scrolling game selector on mobile
+ *   - Board auto-sizes to screen dimensions
+ *   - Safe area support for notched phones
+ *   - Mobile navigation with bottom bar
+ *   - Responsive InteractiveLesson component
+ *   - Responsive PuzzleTrainer component
+ *   - Responsive ChessCoach home screen
+ *
+ * v2.0.0 - Complete Coach Overhaul
  *   - Skill assessment to establish baseline (5 questions)
  *   - Structured curriculum with beginner/intermediate/advanced modules
  *   - Training sessions: lessons, tactical puzzles, practice games
@@ -136,11 +148,13 @@ import { parsePGN, MASTER_COLLECTIONS } from "./data/pgnParser.js";
 import { PLAYERS, getPlayer } from "./data/playerInfo.js";
 import { getGamesByMaster } from "./data/mastersDatabase.js";
 import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
+import useResponsive, { getBoardSize, getSpacing } from "./hooks/useResponsive.js";
+import "./styles/responsive.css";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "2.1.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -229,6 +243,11 @@ export default function App() {
   const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
   const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "classic_wood");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  
+  // Responsive viewport
+  const viewport = useResponsive();
+  const { isMobile, isTablet, isDesktop } = viewport;
+  const spacing = getSpacing(viewport);
   
   // Auth state
   const [user, setUser] = useState(null);
@@ -661,140 +680,306 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.bg, color: theme.ink, fontFamily: fonts.body, transition }}>
-      {/* Header */}
-      <header style={{
-        position: "sticky", top: 0, zIndex: 100,
-        background: `linear-gradient(to bottom, ${theme.bg} 0%, ${theme.bg}ee 100%)`,
-        backdropFilter: "blur(12px)", borderBottom: `1px solid ${theme.border}`,
-      }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 32 }}>♛</span>
-            <span style={{ fontFamily: fonts.display, fontSize: 22, fontWeight: 500 }}>ChessGrandmaster</span>
+    <div style={{ 
+      minHeight: "100vh", 
+      background: theme.bg, 
+      color: theme.ink, 
+      fontFamily: fonts.body, 
+      transition,
+      paddingBottom: isMobile ? "calc(80px + env(safe-area-inset-bottom, 0))" : 0
+    }}>
+      {/* Mobile Header */}
+      {isMobile && (
+        <header style={{
+          position: "sticky", top: 0, zIndex: 100,
+          background: "rgba(26, 26, 26, 0.95)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          padding: "12px 16px",
+          paddingTop: "calc(12px + env(safe-area-inset-top, 0))",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderBottom: `1px solid ${theme.border}`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 24 }}>♛</span>
+            <span style={{ fontWeight: 600, fontSize: 16 }}>ChessGrandmaster</span>
           </div>
+          <button 
+            onClick={() => setShowSettings(!showSettings)}
+            style={{
+              background: "transparent", border: "none", color: theme.ink,
+              padding: 8, cursor: "pointer", fontSize: 20
+            }}
+          >⚙️</button>
+        </header>
+      )}
 
-          <nav style={{ display: "flex", gap: 32 }}>
-            {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "coach", label: "Coach" }, { id: "training", label: "Zone" }].map(tab => (
-              <button key={tab.id} onClick={() => {
-                if (tab.id === "training") setShowZoneMode(true);
-                else if (tab.id === "coach") setShowChessCoach(true);
-                else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
-              }}
-                style={{
-                  background: "none", border: "none", fontFamily: fonts.body, fontSize: 12, fontWeight: 500,
-                  letterSpacing: "0.1em", textTransform: "uppercase", color: theme.ink,
-                  opacity: activeTab === tab.id ? 1 : 0.5, cursor: "pointer", padding: "8px 0", position: "relative", transition,
-                }}>
-                {tab.label}
-                {activeTab === tab.id && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: theme.accent, borderRadius: 1 }} />}
-              </button>
-            ))}
-          </nav>
+      {/* Desktop Header */}
+      {!isMobile && (
+        <header style={{
+          position: "sticky", top: 0, zIndex: 100,
+          background: `linear-gradient(to bottom, ${theme.bg} 0%, ${theme.bg}ee 100%)`,
+          backdropFilter: "blur(12px)", borderBottom: `1px solid ${theme.border}`,
+        }}>
+          <div style={{ 
+            maxWidth: 1400, margin: "0 auto", 
+            padding: isTablet ? "14px 24px" : "16px 32px", 
+            display: "flex", justifyContent: "space-between", alignItems: "center" 
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: isTablet ? 28 : 32 }}>♛</span>
+              <span style={{ fontFamily: fonts.display, fontSize: isTablet ? 18 : 22, fontWeight: 500 }}>ChessGrandmaster</span>
+            </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setShowSettings(!showSettings)} style={{
-                background: theme.accentSoft, border: `1px solid ${theme.border}`, borderRadius: 8,
-                padding: "8px 14px", cursor: "pointer", color: theme.ink, fontSize: 14, transition,
-              }}>⚙</button>
-              {showSettings && (
-                <div style={{
-                  position: "absolute", top: "100%", right: 0, marginTop: 8, background: theme.card,
-                  border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, boxShadow: theme.shadowStrong,
-                  zIndex: 200, minWidth: 220,
-                }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
-                  {Object.values(THEMES).map(t => (
-                    <button key={t.id} onClick={() => { changeTheme(t.id); setShowSettings(false); }}
-                      style={{
-                        width: "100%", padding: "10px 12px", borderRadius: 8, border: "none",
-                        background: themeId === t.id ? theme.accentSoft : "transparent", color: theme.ink,
-                        cursor: "pointer", textAlign: "left", fontSize: 13, fontWeight: 500,
-                        display: "flex", alignItems: "center", gap: 10, marginBottom: 4, transition,
-                      }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 9, background: t.bg, border: `2px solid ${t.ink}` }} />
-                      {t.name}
-                    </button>
-                  ))}
-                  
-                  <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12, marginTop: 16 }}>BOARD THEME</p>
-                  <select
-                    value={boardThemeId}
-                    onChange={(e) => { setBoardThemeId(e.target.value); localStorage.setItem("cm-board-theme", e.target.value); }}
-                    style={{
-                      width: "100%", padding: "10px 12px", borderRadius: 8, 
-                      border: `1px solid ${theme.border}`, background: theme.bg, color: theme.ink,
-                      fontSize: 13, cursor: "pointer", marginBottom: 8
-                    }}
-                  >
-                    {listBoardThemes().map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+            <nav style={{ display: "flex", gap: isTablet ? 20 : 32 }}>
+              {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "coach", label: "Coach" }, { id: "training", label: "Zone" }].map(tab => (
+                <button key={tab.id} onClick={() => {
+                  if (tab.id === "training") setShowZoneMode(true);
+                  else if (tab.id === "coach") setShowChessCoach(true);
+                  else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
+                }}
+                  style={{
+                    background: "none", border: "none", fontFamily: fonts.body, fontSize: isTablet ? 11 : 12, fontWeight: 500,
+                    letterSpacing: "0.1em", textTransform: "uppercase", color: theme.ink,
+                    opacity: activeTab === tab.id ? 1 : 0.5, cursor: "pointer", padding: "8px 0", position: "relative", transition,
+                  }}>
+                  {tab.label}
+                  {activeTab === tab.id && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: theme.accent, borderRadius: 1 }} />}
+                </button>
+              ))}
+            </nav>
+
+            <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 10 : 16 }}>
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setShowSettings(!showSettings)} style={{
+                  background: theme.accentSoft, border: `1px solid ${theme.border}`, borderRadius: 8,
+                  padding: "8px 14px", cursor: "pointer", color: theme.ink, fontSize: 14, transition,
+                }}>⚙</button>
+                {showSettings && (
+                  <div style={{
+                    position: "absolute", top: "100%", right: 0, marginTop: 8, background: theme.card,
+                    border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16, boxShadow: theme.shadowStrong,
+                    zIndex: 200, minWidth: 220,
+                  }}>
+                    <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
+                    {Object.values(THEMES).map(t => (
+                      <button key={t.id} onClick={() => { changeTheme(t.id); setShowSettings(false); }}
+                        style={{
+                          width: "100%", padding: "10px 12px", borderRadius: 8, border: "none",
+                          background: themeId === t.id ? theme.accentSoft : "transparent", color: theme.ink,
+                          cursor: "pointer", textAlign: "left", fontSize: 13, fontWeight: 500,
+                          display: "flex", alignItems: "center", gap: 10, marginBottom: 4, transition,
+                        }}>
+                        <div style={{ width: 18, height: 18, borderRadius: 9, background: t.bg, border: `2px solid ${t.ink}` }} />
+                        {t.name}
+                      </button>
                     ))}
-                  </select>
-                  
-                  <div style={{ borderTop: `1px solid ${theme.border}`, marginTop: 12, paddingTop: 12 }}>
-                    <button 
-                      onClick={() => { setShowAdminPanel(true); setShowSettings(false); }}
+                    
+                    <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12, marginTop: 16 }}>BOARD THEME</p>
+                    <select
+                      value={boardThemeId}
+                      onChange={(e) => { setBoardThemeId(e.target.value); localStorage.setItem("cm-board-theme", e.target.value); }}
                       style={{
-                        width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`,
-                        background: "transparent", color: theme.ink, cursor: "pointer", textAlign: "left", 
-                        fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 10
-                      }}>
-                      ⚙️ Admin Panel
-                    </button>
+                        width: "100%", padding: "10px 12px", borderRadius: 8, 
+                        border: `1px solid ${theme.border}`, background: theme.bg, color: theme.ink,
+                        fontSize: 13, cursor: "pointer", marginBottom: 8
+                      }}
+                    >
+                      {listBoardThemes().map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                    
+                    <div style={{ borderTop: `1px solid ${theme.border}`, marginTop: 12, paddingTop: 12 }}>
+                      <button 
+                        onClick={() => { setShowAdminPanel(true); setShowSettings(false); }}
+                        style={{
+                          width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`,
+                          background: "transparent", color: theme.ink, cursor: "pointer", textAlign: "left", 
+                          fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 10
+                        }}>
+                        ⚙️ Admin Panel
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+              {supabase && !isTablet && (
+                user ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 13, color: theme.inkMuted }}>{user.email?.split("@")[0]}</span>
+                    <button onClick={handleSignOut} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer", fontSize: 13 }}>Sign Out</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowAuthModal(true)} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Sign In</button>
+                )
               )}
             </div>
+          </div>
+        </header>
+      )}
+
+      {/* Mobile Settings Panel */}
+      {isMobile && showSettings && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", zIndex: 200
+        }} onClick={() => setShowSettings(false)}>
+          <div style={{
+            position: "absolute", top: 60, right: 16, background: theme.card,
+            border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16,
+            boxShadow: theme.shadowStrong, minWidth: 260, maxWidth: "calc(100vw - 32px)"
+          }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 }}>
+              {Object.values(THEMES).map(t => (
+                <button key={t.id} onClick={() => { changeTheme(t.id); }}
+                  style={{
+                    padding: "12px", borderRadius: 8, border: themeId === t.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
+                    background: themeId === t.id ? theme.accentSoft : "transparent", color: theme.ink,
+                    cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 500,
+                  }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 12, background: t.bg, border: `2px solid ${t.ink}`, margin: "0 auto 6px" }} />
+                  {t.name}
+                </button>
+              ))}
+            </div>
+            
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 8 }}>BOARD THEME</p>
+            <select
+              value={boardThemeId}
+              onChange={(e) => { setBoardThemeId(e.target.value); localStorage.setItem("cm-board-theme", e.target.value); }}
+              style={{
+                width: "100%", padding: "12px", borderRadius: 8, 
+                border: `1px solid ${theme.border}`, background: theme.bg, color: theme.ink,
+                fontSize: 14, marginBottom: 12
+              }}
+            >
+              {listBoardThemes().map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            
+            <button 
+              onClick={() => { setShowAdminPanel(true); setShowSettings(false); }}
+              style={{
+                width: "100%", padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`,
+                background: "transparent", color: theme.ink, cursor: "pointer",
+                fontSize: 13, fontWeight: 500, marginBottom: 8
+              }}>
+              ⚙️ Admin Panel
+            </button>
+            
             {supabase && (
               user ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 13, color: theme.inkMuted }}>{user.email?.split("@")[0]}</span>
-                  <button onClick={handleSignOut} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${theme.border}`, background: "transparent", color: theme.ink, cursor: "pointer", fontSize: 13 }}>Sign Out</button>
-                </div>
+                <button onClick={handleSignOut} style={{
+                  width: "100%", padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`,
+                  background: "transparent", color: theme.ink, cursor: "pointer", fontSize: 13
+                }}>Sign Out ({user.email?.split("@")[0]})</button>
               ) : (
-                <button onClick={() => setShowAuthModal(true)} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Sign In</button>
+                <button onClick={() => { setShowAuthModal(true); setShowSettings(false); }} style={{
+                  width: "100%", padding: "12px", borderRadius: 8, border: "none",
+                  background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg,
+                  cursor: "pointer", fontWeight: 600, fontSize: 14
+                }}>Sign In</button>
               )
             )}
           </div>
         </div>
-      </header>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && !showZoneMode && !showChessCoach && !showAdminPanel && (
+        <nav style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+          background: "rgba(26, 26, 26, 0.98)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          borderTop: `1px solid ${theme.border}`,
+          padding: "8px 8px",
+          paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0))",
+          display: "flex", justifyContent: "space-around"
+        }}>
+          {[
+            { id: "library", label: "Library", icon: "📚" },
+            { id: "play", label: "Play", icon: "♟️" },
+            { id: "coach", label: "Coach", icon: "🎓" },
+            { id: "zone", label: "Zone", icon: "🎯" }
+          ].map(tab => {
+            const isActive = activeTab === tab.id || (tab.id === "zone" && showZoneMode) || (tab.id === "coach" && showChessCoach);
+            return (
+              <button key={tab.id} onClick={() => {
+                if (tab.id === "zone") setShowZoneMode(true);
+                else if (tab.id === "coach") setShowChessCoach(true);
+                else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
+              }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                  padding: "8px 16px", background: "none", border: "none",
+                  color: isActive ? "#4CAF50" : "rgba(255,255,255,0.5)",
+                  cursor: "pointer"
+                }}>
+                <span style={{ fontSize: 22 }}>{tab.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 500 }}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Library */}
       {activeTab === "library" && (
-        <main style={{ maxWidth: 1400, margin: "0 auto", padding: 32 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: `1px solid ${theme.border}`, paddingBottom: 16 }}>
+        <main style={{ 
+          maxWidth: 1400, margin: "0 auto", 
+          padding: isMobile ? 16 : isTablet ? 24 : 32 
+        }}>
+          {/* Source tabs - scrollable on mobile */}
+          <div style={{ 
+            display: "flex", gap: 8, marginBottom: isMobile ? 16 : 24, 
+            borderBottom: `1px solid ${theme.border}`, paddingBottom: isMobile ? 12 : 16,
+            overflowX: isMobile ? "auto" : "visible",
+            WebkitOverflowScrolling: "touch",
+            msOverflowStyle: "none",
+            scrollbarWidth: "none"
+          }}>
             {Object.values(SOURCES).map(s => (
               <button key={s.id} onClick={() => setSource(s.id)}
                 style={{
-                  padding: "10px 20px", borderRadius: 8,
+                  padding: isMobile ? "10px 16px" : "10px 20px", borderRadius: 8,
                   border: source === s.id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
                   background: source === s.id ? theme.accentSoft : "transparent", color: theme.ink,
-                  cursor: "pointer", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, transition,
+                  cursor: "pointer", fontSize: isMobile ? 12 : 13, fontWeight: 500, 
+                  display: "flex", alignItems: "center", gap: 8, transition,
+                  whiteSpace: "nowrap", flexShrink: 0
                 }}>
-                <span>{s.icon}</span>{s.name}
+                <span>{s.icon}</span>{isMobile ? null : s.name}
               </button>
             ))}
           </div>
 
           {source !== "imported" && source !== "masters" && (
-            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+            <div style={{ display: "flex", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24, flexDirection: isMobile ? "column" : "row" }}>
               <input type="text" placeholder={source === "classics" ? "Search games..." : "Enter username..."}
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                style={{ flex: 1, padding: "14px 20px", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.card, color: theme.ink, fontSize: 14, outline: "none" }} />
-              <button onClick={handleSearch} style={{ padding: "14px 28px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Search</button>
+                style={{ flex: 1, padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.card, color: theme.ink, fontSize: 14, outline: "none" }} />
+              <button onClick={handleSearch} style={{ padding: isMobile ? "12px 20px" : "14px 28px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Search</button>
             </div>
           )}
 
           {source === "classics" && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+            <div style={{ 
+              display: "flex", gap: 8, flexWrap: "wrap", marginBottom: isMobile ? 16 : 24,
+              overflowX: isMobile ? "auto" : "visible",
+              WebkitOverflowScrolling: "touch",
+              paddingBottom: isMobile ? 8 : 0
+            }}>
               {Object.entries(GAME_CATEGORIES).map(([id, cat]) => (
                 <button key={id} onClick={() => selectCategory(id)}
                   style={{
-                    padding: "8px 16px", borderRadius: 20,
+                    padding: isMobile ? "6px 12px" : "8px 16px", borderRadius: 20,
                     border: selectedCategory === id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                    background: selectedCategory === id ? theme.accentSoft : "transparent", color: theme.ink, cursor: "pointer", fontSize: 12, fontWeight: 500, transition,
+                    background: selectedCategory === id ? theme.accentSoft : "transparent", color: theme.ink, 
+                    cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 500, transition,
+                    whiteSpace: "nowrap", flexShrink: 0
                   }}>
                   {cat.icon} {cat.name}
                 </button>
@@ -805,13 +990,12 @@ export default function App() {
           {source === "masters" && (
             <div style={{ marginBottom: 24 }}>
               {/* Header */}
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontFamily: fonts.display, fontSize: 24, marginBottom: 8, color: theme.ink }}>
+              <div style={{ marginBottom: isMobile ? 16 : 24 }}>
+                <h2 style={{ fontFamily: fonts.display, fontSize: isMobile ? 20 : 24, marginBottom: 8, color: theme.ink }}>
                   Chess Legends
                 </h2>
-                <p style={{ fontSize: 14, color: theme.inkMuted, maxWidth: 600, lineHeight: 1.5 }}>
+                <p style={{ fontSize: isMobile ? 13 : 14, color: theme.inkMuted, maxWidth: 600, lineHeight: 1.5 }}>
                   Explore curated game collections from the greatest players in chess history.
-                  Study their strategies, learn from their brilliance.
                 </p>
               </div>
               
@@ -821,8 +1005,16 @@ export default function App() {
                 </div>
               )}
               
-              {/* Player Grid - Larger Cards */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
+              {/* Player Grid - Responsive */}
+              <div style={{ 
+                display: "grid", 
+                gridTemplateColumns: isMobile 
+                  ? "1fr" 
+                  : isTablet 
+                    ? "repeat(auto-fill, minmax(280px, 1fr))" 
+                    : "repeat(auto-fill, minmax(320px, 1fr))", 
+                gap: isMobile ? 12 : 20 
+              }}>
                 {/* Built-in players */}
                 {Object.entries(PLAYERS).map(([id, player]) => {
                   const gameCount = getGamesByMaster(id).length;
@@ -834,7 +1026,7 @@ export default function App() {
                       onClick={() => loadMaster(id)} 
                       style={{
                         backgroundColor: theme.card,
-                        borderRadius: 16,
+                        borderRadius: isMobile ? 12 : 16,
                         overflow: "hidden",
                         border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                         transition: "all 0.2s ease",
@@ -842,15 +1034,15 @@ export default function App() {
                         display: "flex",
                         flexDirection: "column"
                       }}
-                      onMouseOver={(e) => { if (selectedMaster !== id) e.currentTarget.style.borderColor = theme.accent + "60"; }}
-                      onMouseOut={(e) => { if (selectedMaster !== id) e.currentTarget.style.borderColor = theme.border; }}
+                      onMouseOver={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60"; }}
+                      onMouseOut={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border; }}
                     >
                       {/* Top Section - Image + Basic Info */}
-                      <div style={{ display: "flex", height: 140 }}>
+                      <div style={{ display: "flex", height: isMobile ? 100 : 140 }}>
                         {/* Player Image */}
                         <div style={{ 
-                          width: 140,
-                          minWidth: 140,
+                          width: isMobile ? 100 : 140,
+                          minWidth: isMobile ? 100 : 140,
                           backgroundColor: theme.bgAlt,
                           backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
                           backgroundSize: "cover",
@@ -861,14 +1053,14 @@ export default function App() {
                         }}>
                           {!player.imageUrl && (
                             <div style={{ 
-                              width: 70, 
-                              height: 70, 
+                              width: isMobile ? 50 : 70, 
+                              height: isMobile ? 50 : 70, 
                               borderRadius: "50%", 
                               background: theme.accentSoft,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: 28,
+                              fontSize: isMobile ? 20 : 28,
                               color: theme.accent
                             }}>
                               {player.name.charAt(0)}
@@ -1118,25 +1310,75 @@ export default function App() {
           {error && <p style={{ color: theme.error }}>{error}</p>}
 
           {displayGames.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 280px", gap: 16 }}>
-              {/* Games List */}
-              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, overflow: "hidden" }}>
-                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted }}>
-                  GAMES ({displayGames.length})
+            <div style={{ 
+              display: isMobile ? "flex" : "grid", 
+              flexDirection: "column",
+              gridTemplateColumns: isTablet ? "1fr 1fr" : "220px 1fr 280px", 
+              gap: isMobile ? 12 : 16 
+            }}>
+              {/* Mobile: Show Board first, then game selector */}
+              {/* Desktop: Show games list first */}
+              
+              {/* Games List - On mobile shows as horizontal scroll or collapsible */}
+              <div style={{ 
+                background: theme.card, 
+                borderRadius: isMobile ? 12 : 16, 
+                border: `1px solid ${theme.border}`, 
+                overflow: "hidden",
+                order: isMobile ? 2 : 1
+              }}>
+                <div style={{ 
+                  padding: isMobile ? "10px 14px" : "12px 16px", 
+                  borderBottom: `1px solid ${theme.border}`, 
+                  fontSize: 10, 
+                  fontWeight: 600, 
+                  letterSpacing: "0.12em", 
+                  color: theme.inkMuted,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                  <span>GAMES ({displayGames.length})</span>
                 </div>
-                <div style={{ maxHeight: 600, overflowY: "auto" }}>
+                <div style={{ 
+                  maxHeight: isMobile ? 200 : 600, 
+                  overflowY: "auto",
+                  overflowX: isMobile ? "auto" : "hidden",
+                  display: isMobile ? "flex" : "block",
+                  flexDirection: isMobile ? "row" : "column",
+                  gap: isMobile ? 8 : 0,
+                  padding: isMobile ? 8 : 0
+                }}>
                   {displayGames.map((game, i) => (
                     <div key={game.id || i} onClick={() => selectGame(game)}
-                      style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, cursor: "pointer", background: selectedGame?.id === game.id ? theme.accentSoft : "transparent", transition }}>
+                      style={{ 
+                        padding: isMobile ? "10px 12px" : "12px 16px", 
+                        borderBottom: isMobile ? "none" : `1px solid ${theme.border}`,
+                        borderRadius: isMobile ? 8 : 0,
+                        border: isMobile ? `1px solid ${theme.border}` : "none",
+                        cursor: "pointer", 
+                        background: selectedGame?.id === game.id ? theme.accentSoft : isMobile ? theme.bgAlt : "transparent", 
+                        transition,
+                        minWidth: isMobile ? 180 : "auto",
+                        flexShrink: 0
+                      }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                        <span style={{ fontWeight: 600, fontSize: 12, lineHeight: 1.3 }}>{game.title || `${game.white} vs ${game.black}`}</span>
+                        <span style={{ fontWeight: 600, fontSize: isMobile ? 11 : 12, lineHeight: 1.3 }}>
+                          {game.title || `${game.white} vs ${game.black}`}
+                        </span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: theme.inkMuted }}>{game.event?.slice(0, 20)} {game.year || game.date}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted }}>{game.result}</span>
+                        <span style={{ fontSize: isMobile ? 10 : 11, color: theme.inkMuted }}>
+                          {game.event?.slice(0, isMobile ? 15 : 20)} {game.year || game.date}
+                        </span>
+                        <span style={{ 
+                          fontSize: isMobile ? 10 : 11, 
+                          fontWeight: 600, 
+                          color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted 
+                        }}>{game.result}</span>
                       </div>
                       {!game.pgn && <span style={{ fontSize: 10, color: theme.error }}>⚠ No moves</span>}
-                      {source === "imported" && (
+                      {source === "imported" && !isMobile && (
                         <button onClick={(e) => { e.stopPropagation(); deleteImportedGame(game.id); }}
                           style={{ marginTop: 6, padding: "3px 6px", fontSize: 10, borderRadius: 4, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer" }}>Delete</button>
                       )}
@@ -1146,17 +1388,33 @@ export default function App() {
               </div>
 
               {/* Board */}
-              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 16, display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ 
+                background: theme.card, 
+                borderRadius: isMobile ? 12 : 16, 
+                border: `1px solid ${theme.border}`, 
+                padding: isMobile ? 12 : 16, 
+                display: "flex", 
+                flexDirection: "column", 
+                alignItems: "center",
+                order: isMobile ? 1 : 2,
+                gridColumn: isTablet ? "span 2" : "auto"
+              }}>
                 <div style={{ height: 24, marginBottom: 8, display: "flex", gap: 2, alignItems: "center", width: "100%", justifyContent: "center" }}>
-                  {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
+                  {capturedPieces.byBlack.map((p, i) => <img key={i} src={`/pieces/classic/w${p.toUpperCase()}.svg`} alt="" style={{ width: isMobile ? 16 : 20, height: isMobile ? 16 : 20, opacity: 0.7 }} />)}
                 </div>
                 <div style={{ maxWidth: "100%", overflow: "hidden" }}>
-                  <Board fen={libraryFen} orientation={libraryOrientation} onMove={() => {}} interactive={false} size={420} />
+                  <Board 
+                    fen={libraryFen} 
+                    orientation={libraryOrientation} 
+                    onMove={() => {}} 
+                    interactive={false} 
+                    size={isMobile ? Math.min(viewport.width - 56, 360) : isTablet ? 400 : 420} 
+                  />
                 </div>
                 <div style={{ height: 24, marginTop: 8, display: "flex", gap: 2, alignItems: "center", width: "100%", justifyContent: "center" }}>
-                  {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: 20, height: 20, opacity: 0.7 }} />)}
+                  {capturedPieces.byWhite.map((p, i) => <img key={i} src={`/pieces/classic/b${p.toUpperCase()}.svg`} alt="" style={{ width: isMobile ? 16 : 20, height: isMobile ? 16 : 20, opacity: 0.7 }} />)}
                 </div>
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: isMobile ? 6 : 8, marginTop: isMobile ? 12 : 16, flexWrap: "wrap" }}>
                   {[
                     { l: "⏮", a: () => goToMove(0), d: libraryMoveIndex === 0 },
                     { l: "◀", a: () => goToMove(libraryMoveIndex - 1), d: libraryMoveIndex === 0 },
@@ -1165,44 +1423,90 @@ export default function App() {
                     { l: "↻", a: () => setLibraryOrientation(o => o === "w" ? "b" : "w") },
                   ].map((b, i) => (
                     <button key={i} onClick={b.a} disabled={b.d}
-                      style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bgAlt, color: theme.ink, cursor: b.d ? "default" : "pointer", opacity: b.d ? 0.4 : 1, fontSize: 14, transition }}>{b.l}</button>
+                      style={{ 
+                        padding: isMobile ? "10px 14px" : "8px 14px", 
+                        borderRadius: 8, 
+                        border: `1px solid ${theme.border}`, 
+                        background: theme.bgAlt, 
+                        color: theme.ink, 
+                        cursor: b.d ? "default" : "pointer", 
+                        opacity: b.d ? 0.4 : 1, 
+                        fontSize: isMobile ? 16 : 14, 
+                        transition,
+                        minHeight: isMobile ? 44 : "auto"
+                      }}>{b.l}</button>
                   ))}
                 </div>
                 {selectedGame && (
                   <button onClick={() => setShowZoneMode(true)}
-                    style={{ width: "100%", marginTop: 16, padding: "14px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+                    style={{ 
+                      width: "100%", 
+                      marginTop: isMobile ? 12 : 16, 
+                      padding: isMobile ? "16px" : "14px", 
+                      borderRadius: 10, 
+                      border: "none", 
+                      background: theme.accent, 
+                      color: theme.id === "light" ? "#fff" : theme.bg, 
+                      cursor: "pointer", 
+                      fontWeight: 600, 
+                      fontSize: isMobile ? 15 : 14,
+                      minHeight: isMobile ? 48 : "auto"
+                    }}>
                     🎯 Enter Zone Mode
                   </button>
                 )}
               </div>
 
-              {/* Info */}
-              <div style={{ background: theme.card, borderRadius: 16, border: `1px solid ${theme.border}`, padding: 16, display: "flex", flexDirection: "column", maxHeight: 700 }}>
+              {/* Info - Moves Panel */}
+              <div style={{ 
+                background: theme.card, 
+                borderRadius: isMobile ? 12 : 16, 
+                border: `1px solid ${theme.border}`, 
+                padding: isMobile ? 12 : 16, 
+                display: "flex", 
+                flexDirection: "column", 
+                maxHeight: isMobile ? 300 : 700,
+                order: 3,
+                gridColumn: isTablet ? "span 2" : "auto"
+              }}>
                 {selectedGame ? (
                   <>
-                    <h2 style={{ fontFamily: fonts.display, fontSize: 16, marginBottom: 4, lineHeight: 1.3 }}>{selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}</h2>
-                    {selectedGame.description && <p style={{ fontSize: 12, color: theme.inkMuted, lineHeight: 1.5, marginBottom: 10 }}>{selectedGame.description}</p>}
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
-                      <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.event}</span>
-                      <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.result}</span>
-                      {selectedGame.year && <span style={{ fontSize: 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.year}</span>}
+                    <h2 style={{ fontFamily: fonts.display, fontSize: isMobile ? 15 : 16, marginBottom: 4, lineHeight: 1.3 }}>
+                      {selectedGame.title || `${selectedGame.white} vs ${selectedGame.black}`}
+                    </h2>
+                    {selectedGame.description && !isMobile && (
+                      <p style={{ fontSize: 12, color: theme.inkMuted, lineHeight: 1.5, marginBottom: 10 }}>{selectedGame.description}</p>
+                    )}
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: isMobile ? 8 : 12 }}>
+                      <span style={{ fontSize: isMobile ? 9 : 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.event}</span>
+                      <span style={{ fontSize: isMobile ? 9 : 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.result}</span>
+                      {selectedGame.year && <span style={{ fontSize: isMobile ? 9 : 10, padding: "3px 8px", background: theme.accentSoft, borderRadius: 4 }}>{selectedGame.year}</span>}
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 6 }}>MOVES ({libraryMoveIndex}/{libraryMoves.length})</div>
-                    <div style={{ flex: 1, overflowY: "auto", background: theme.bgAlt, borderRadius: 10, padding: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 6 }}>
+                      MOVES ({libraryMoveIndex}/{libraryMoves.length})
+                    </div>
+                    <div style={{ flex: 1, overflowY: "auto", background: theme.bgAlt, borderRadius: 10, padding: isMobile ? 8 : 10 }}>
                       {libraryMoves.length > 0 ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: isMobile ? 2 : 3 }}>
                           {libraryMoves.map((move, idx) => (
                             <span key={idx} onClick={() => goToMove(idx + 1)}
-                              style={{ padding: "5px 8px", borderRadius: 5, background: idx + 1 === libraryMoveIndex ? theme.accent : "transparent", color: idx + 1 === libraryMoveIndex ? (theme.id === "light" ? "#fff" : theme.bg) : theme.ink, cursor: "pointer", fontSize: 12, transition }}>
+                              style={{ 
+                                padding: isMobile ? "4px 6px" : "5px 8px", 
+                                borderRadius: 5, 
+                                background: idx + 1 === libraryMoveIndex ? theme.accent : "transparent", 
+                                color: idx + 1 === libraryMoveIndex ? (theme.id === "light" ? "#fff" : theme.bg) : theme.ink, 
+                                cursor: "pointer", 
+                                fontSize: isMobile ? 11 : 12, 
+                                transition 
+                              }}>
                               {idx % 2 === 0 && <span style={{ opacity: 0.5, marginRight: 2 }}>{Math.floor(idx / 2) + 1}.</span>}{move}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <div style={{ textAlign: "center", padding: 20, color: theme.inkMuted }}>
+                        <div style={{ textAlign: "center", padding: isMobile ? 16 : 20, color: theme.inkMuted }}>
                           <p style={{ fontSize: 24, marginBottom: 8 }}>📋</p>
-                          <p style={{ fontSize: 12 }}>No moves available for this game</p>
-                          <p style={{ fontSize: 11, marginTop: 4 }}>PGN data may be missing</p>
+                          <p style={{ fontSize: 12 }}>No moves available</p>
                         </div>
                       )}
                     </div>
