@@ -206,11 +206,7 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
   // Speak coach messages when they change (and voice is enabled)
   useEffect(() => {
     if (coachMessage && voice.isEnabled) {
-      // Small delay to ensure voice is ready
-      const timer = setTimeout(() => {
-        voice.speak(coachMessage);
-      }, 100);
-      return () => clearTimeout(timer);
+      voice.speak(coachMessage);
     }
   }, [coachMessage, voice.isEnabled]);
 

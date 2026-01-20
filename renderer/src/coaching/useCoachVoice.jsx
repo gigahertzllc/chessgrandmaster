@@ -28,7 +28,7 @@ export function useCoachVoice() {
   const [isEnabled, setIsEnabled] = useState(false);
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
-  const [rate, setRate] = useState(1.0);  // 0.5 - 2.0
+  const [rate, setRate] = useState(0.95);  // 0.5 - 2.0 (slightly slower for clarity)
   const [pitch, setPitch] = useState(1.0); // 0.5 - 2.0
   const utteranceRef = useRef(null);
 
@@ -84,47 +84,103 @@ export function useCoachVoice() {
     return availableVoices[0];
   }
 
+  // Chrome has a bug where speech synthesis pauses after ~15 seconds
+  // This workaround keeps it alive by calling pause/resume periodically
+  const keepAliveRef = useRef(null);
+
+  const startKeepAlive = useCallback(() => {
+    // Clear any existing interval
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+    }
+    
+    // Every 10 seconds, pause and immediately resume to prevent Chrome bug
+    keepAliveRef.current = setInterval(() => {
+      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+  }, []);
+
+  const stopKeepAlive = useCallback(() => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+  }, []);
+
   // Speak text
   const speak = useCallback((text) => {
     if (!isSupported || !isEnabled || !text) return;
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
+    stopKeepAlive();
 
     // Clean up text for speech
     const cleanText = text
-      .replace(/[🎉✨🏆⚔️📖♟️👑🧠💡]/g, "") // Remove emojis
+      .replace(/[🎉✨🏆⚔️📖♟️👑🧠💡🎯🎓]/g, "") // Remove emojis
       .replace(/\*\*/g, "")  // Remove markdown bold
-      .replace(/\n+/g, ". ") // Convert newlines to pauses
+      .replace(/\n+/g, " ") // Convert newlines to spaces
+      .replace(/\s+/g, " ") // Normalize whitespace
       .trim();
 
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utteranceRef.current = utterance;
+    // Small delay after cancel to prevent audio glitches
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utteranceRef.current = utterance;
 
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-    }
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      
+      utterance.rate = rate;
+      utterance.pitch = pitch;
+      utterance.volume = 1.0;
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        startKeepAlive(); // Start the Chrome workaround
+      };
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        stopKeepAlive();
+      };
+      
+      utterance.onerror = (e) => {
+        // Don't log 'interrupted' errors - those are normal when we cancel
+        if (e.error !== 'interrupted') {
+          console.warn('Speech error:', e.error);
+        }
+        setIsSpeaking(false);
+        stopKeepAlive();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }, 150); // 150ms delay after cancel
     
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    utterance.volume = 1.0;
-
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, isEnabled, selectedVoice, rate, pitch]);
+  }, [isSupported, isEnabled, selectedVoice, rate, pitch, startKeepAlive, stopKeepAlive]);
 
   // Stop speaking
   const stop = useCallback(() => {
     if (isSupported) {
       window.speechSynthesis.cancel();
+      stopKeepAlive();
       setIsSpeaking(false);
     }
-  }, [isSupported]);
+  }, [isSupported, stopKeepAlive]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopKeepAlive();
+      window.speechSynthesis.cancel();
+    };
+  }, [stopKeepAlive]);
 
   // Toggle voice on/off
   const toggleEnabled = useCallback(() => {
