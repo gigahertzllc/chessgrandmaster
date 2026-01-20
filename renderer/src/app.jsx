@@ -1,8 +1,13 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.1.0
+ * Version: 2.1.1
  * Last Updated: January 20, 2026
  * 
+ * v2.1.1 - Coaching Board Fix
+ *   - Fixed piece movement in PuzzleTrainer and InteractiveLesson
+ *   - Board now uses correct props (interactive, onMove) 
+ *   - Fixed orientation prop ("w"/"b" instead of "white"/"black")
+ *
  * v2.1.0 - Responsive Mobile UI Overhaul
  *   - Complete mobile-first responsive design
  *   - Tablet breakpoint (768px-1024px) optimization  
@@ -154,7 +159,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.1.1";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography

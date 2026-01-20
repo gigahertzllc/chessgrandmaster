@@ -770,10 +770,9 @@ export default function PuzzleTrainer({
         <div style={{ flexShrink: 0 }}>
           <Board
             chess={chess}
-            onSquareClick={handleSquareClick}
-            selectedSquare={selectedSquare}
-            legalMoves={legalMoves}
-            orientation={currentPuzzle?.playerToMove === "black" ? "black" : "white"}
+            interactive={status !== "correct" && status !== "complete"}
+            onMove={(move) => makeMove(move.from, move.to)}
+            orientation={currentPuzzle?.playerToMove === "black" ? "b" : "w"}
             size={isMobile ? Math.min(width - 32, 360) : isTablet ? Math.min(400, height - 300) : Math.min(480, height - 250)}
           />
         </div>

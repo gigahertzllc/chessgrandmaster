@@ -2391,7 +2391,7 @@ function SystemDiagnostics({ colors }) {
           fontSize: 12,
           opacity: 0.5
         }}>
-          ChessGrandmaster v2.1.0
+          ChessGrandmaster v2.1.1
         </div>
       </div>
     </div>

@@ -238,9 +238,7 @@ export default function InteractiveLesson({ lesson, voice, onComplete, onBack })
               <div style={{ flexShrink: 0 }}>
                 <Board
                   chess={chess}
-                  onSquareClick={() => {}}
-                  selectedSquare={null}
-                  legalMoves={[]}
+                  interactive={false}
                   highlights={step.highlights}
                   size={boardSize}
                 />
@@ -266,9 +264,8 @@ export default function InteractiveLesson({ lesson, voice, onComplete, onBack })
             <div style={{ flexShrink: 0 }}>
               <Board
                 chess={chess}
-                onSquareClick={step.moveToFind ? handleSquareClick : () => {}}
-                selectedSquare={selectedSquare}
-                legalMoves={legalMoves}
+                interactive={step.moveToFind && exerciseState === "waiting"}
+                onMove={(move) => makeMove(move.from, move.to)}
                 highlights={step.highlights}
                 size={exerciseBoardSize}
               />
