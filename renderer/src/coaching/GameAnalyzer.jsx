@@ -99,7 +99,7 @@ function generateCoachingFeedback(move, classification, position) {
   return null;
 }
 
-export default function GameAnalyzer({ game, userSkills, onBack, onSkillUpdate }) {
+export default function GameAnalyzer({ game, userSkills, voice, onBack, onSkillUpdate }) {
   const [pgn, setPgn] = useState(game?.pgn || "");
   const [chess, setChess] = useState(new Chess());
   const [moves, setMoves] = useState([]);
@@ -109,6 +109,13 @@ export default function GameAnalyzer({ game, userSkills, onBack, onSkillUpdate }
   const [coachFeedback, setCoachFeedback] = useState(null);
   const [showPgnInput, setShowPgnInput] = useState(!game?.pgn);
   const [summary, setSummary] = useState(null);
+
+  // Speak coach feedback when it changes
+  useEffect(() => {
+    if (coachFeedback && voice?.isEnabled) {
+      voice.speak(coachFeedback);
+    }
+  }, [coachFeedback]);
 
   // Worker for Stockfish (optional enhancement)
   const workerRef = useRef(null);

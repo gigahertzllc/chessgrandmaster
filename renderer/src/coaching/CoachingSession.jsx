@@ -40,7 +40,7 @@ function getRandomFeedback(type) {
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
-export default function CoachingSession({ session, module, userSkills, onComplete, onBack }) {
+export default function CoachingSession({ session, module, userSkills, voice, onComplete, onBack }) {
   const [phase, setPhase] = useState("intro"); // intro | content | puzzle | game | complete
   const [currentExercise, setCurrentExercise] = useState(0);
   const [score, setScore] = useState({ correct: 0, total: 0 });
@@ -51,6 +51,13 @@ export default function CoachingSession({ session, module, userSkills, onComplet
   const [puzzleChess, setPuzzleChess] = useState(null);
   const [puzzleFen, setPuzzleFen] = useState(null);
   const [attempts, setAttempts] = useState(0);
+
+  // Speak coach messages when they change
+  React.useEffect(() => {
+    if (coachMessage && voice?.isEnabled) {
+      voice.speak(coachMessage);
+    }
+  }, [coachMessage]);
 
   // Initialize puzzles for puzzle-type sessions
   React.useEffect(() => {

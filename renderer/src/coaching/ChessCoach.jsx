@@ -4,6 +4,7 @@ import { coachingModules, getAllModules, getModulesByLevel, calculateModuleProgr
 import CoachingSession from "./CoachingSession.jsx";
 import GameAnalyzer from "./GameAnalyzer.jsx";
 import SkillProgress from "./SkillProgress.jsx";
+import { useCoachVoice, VoiceToggleButton, VoiceSettings } from "./useCoachVoice.jsx";
 
 /**
  * Chess Coach - Main Training Hub
@@ -56,6 +57,17 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
   const [estimatedRating, setEstimatedRating] = useState(userProfile?.estimatedRating || null);
   const [assessmentNeeded, setAssessmentNeeded] = useState(!userProfile?.estimatedRating);
   const [gameToAnalyze, setGameToAnalyze] = useState(null);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
+  // Voice synthesis for coach feedback
+  const voice = useCoachVoice();
+
+  // Speak coach messages when they change
+  useEffect(() => {
+    if (coachMessage && voice.isEnabled) {
+      voice.speak(coachMessage);
+    }
+  }, [coachMessage]);
 
   // Save progress
   const saveProgress = useCallback((updates) => {
@@ -483,6 +495,7 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
           session={selectedSession}
           module={selectedModule}
           userSkills={userSkills}
+          voice={voice}
           onComplete={(results) => completeSession(selectedSession.id, results)}
           onBack={() => {
             setSelectedSession(null);
@@ -494,6 +507,7 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
         <GameAnalyzer
           game={gameToAnalyze}
           userSkills={userSkills}
+          voice={voice}
           onBack={() => setView("home")}
           onSkillUpdate={(updates) => setUserSkills(prev => ({ ...prev, ...updates }))}
         />
@@ -515,23 +529,99 @@ export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
 
       {/* Back to main app button - always visible */}
       {view === "home" && (
-        <button
-          onClick={onBack}
+        <div style={{
+          position: "fixed",
+          bottom: 24,
+          left: 24,
+          display: "flex",
+          gap: 12,
+          alignItems: "center"
+        }}>
+          <button
+            onClick={onBack}
+            style={{
+              padding: "12px 20px",
+              background: "rgba(255,255,255,0.1)",
+              border: "none",
+              borderRadius: 8,
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: 14
+            }}
+          >
+            ← Back to App
+          </button>
+          
+          {/* Voice Toggle */}
+          <VoiceToggleButton voice={voice} size={20} />
+          
+          {/* Voice Settings Gear */}
+          {voice.isSupported && (
+            <button
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              style={{
+                background: "rgba(255,255,255,0.1)",
+                border: "none",
+                borderRadius: 8,
+                padding: 10,
+                cursor: "pointer",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center"
+              }}
+              title="Voice Settings"
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Voice Settings Modal */}
+      {showVoiceSettings && (
+        <div 
           style={{
             position: "fixed",
-            bottom: 24,
-            left: 24,
-            padding: "12px 20px",
-            background: "rgba(255,255,255,0.1)",
-            border: "none",
-            borderRadius: 8,
-            color: "#fff",
-            cursor: "pointer",
-            fontSize: 14
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000
           }}
+          onClick={() => setShowVoiceSettings(false)}
         >
-          ← Back to App
-        </button>
+          <div 
+            style={{
+              background: "#1e1e1e",
+              borderRadius: 16,
+              padding: 24,
+              minWidth: 350,
+              maxWidth: 450
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 20px 0", color: "#fff" }}>🔊 Coach Voice Settings</h3>
+            <VoiceSettings voice={voice} />
+            <button
+              onClick={() => setShowVoiceSettings(false)}
+              style={{
+                marginTop: 20,
+                padding: "10px 20px",
+                background: "#444",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                width: "100%"
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
