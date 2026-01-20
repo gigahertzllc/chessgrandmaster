@@ -148,6 +148,82 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     setWikiSearch('');
   };
 
+  // Quick add player directly from Wikipedia - one click!
+  const quickAddFromWikipedia = async (result) => {
+    if (!supabase) {
+      setImportStatus({ type: 'error', message: 'Supabase not configured' });
+      return;
+    }
+
+    setIsLoading(true);
+    setImportStatus({ type: 'loading', message: `Adding ${result.title}...` });
+
+    try {
+      // Extract data from Wikipedia
+      const birthMatch = result.extract.match(/born\s+(\w+\s+\d+,?\s+\d{4})/i);
+      const deathMatch = result.extract.match(/died\s+(\w+\s+\d+,?\s+\d{4})/i);
+      const nationalityMatch = result.extract.match(/is\s+an?\s+(\w+)\s+chess/i) || result.extract.match(/was\s+an?\s+(\w+)\s+chess/i);
+      const ratingMatch = result.extract.match(/peak.*?rating.*?(\d{4})/i) || result.extract.match(/(\d{4}).*?rating/i);
+      const championMatch = result.extract.match(/World\s+(?:Chess\s+)?Champion[^\d]*(\d{4})/i);
+
+      const playerId = generatePlayerId(result.title);
+      
+      // Check if exists
+      if (PLAYERS[playerId] || customPlayers[playerId]) {
+        setImportStatus({ type: 'error', message: `"${result.title}" already exists. Select them from the player list.` });
+        setIsLoading(false);
+        return;
+      }
+
+      const playerData = {
+        id: playerId,
+        name: result.title,
+        fullName: result.title,
+        icon: '♟️',
+        born: birthMatch ? birthMatch[1] : null,
+        died: deathMatch ? deathMatch[1] : null,
+        birthPlace: null,
+        nationality: nationalityMatch ? nationalityMatch[1] : null,
+        titles: [],
+        peakRating: ratingMatch ? parseInt(ratingMatch[1]) : null,
+        worldChampion: championMatch ? championMatch[1] : null,
+        bio: result.extract || null,
+        playingStyle: null,
+        era: null,
+        imageUrl: result.imageUrl || null
+      };
+
+      const { data, error } = await db.createCustomPlayer(playerData);
+
+      if (error) throw error;
+
+      // Add to local state
+      setCustomPlayers(prev => ({
+        ...prev,
+        [playerId]: { ...playerData, isCustom: true }
+      }));
+
+      // Clear search
+      setWikiResults([]);
+      setWikiSearch('');
+      setShowAddPlayerForm(false);
+      
+      // Select the new player
+      setSelectedPlayer(playerId);
+      
+      setImportStatus({ type: 'success', message: `✓ ${result.title} added! Now import their games.` });
+      
+      // Notify parent
+      onPlayersUpdated?.();
+
+    } catch (error) {
+      console.error('Error adding player:', error);
+      setImportStatus({ type: 'error', message: `Failed: ${error.message}` });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const colors = {
     bg: theme?.bg || '#141416',
     card: theme?.card || '#1c1c20',
@@ -561,7 +637,8 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         worldChampion: newPlayer.worldChampion.trim() || null,
         bio: newPlayer.bio.trim() || null,
         playingStyle: newPlayer.playingStyle.trim() || null,
-        era: newPlayer.era.trim() || null
+        era: newPlayer.era.trim() || null,
+        imageUrl: newPlayer.imageUrl || null
       });
 
       if (error) {
@@ -585,6 +662,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
           bio: newPlayer.bio.trim(),
           playingStyle: newPlayer.playingStyle.trim(),
           era: newPlayer.era.trim(),
+          imageUrl: newPlayer.imageUrl || null,
           isCustom: true
         }
       }));
@@ -592,7 +670,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
       // Reset form
       setNewPlayer({
         name: '', fullName: '', icon: '♟️', born: '', died: '', birthPlace: '',
-        nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: ''
+        nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: '', imageUrl: ''
       });
       setShowAddPlayerForm(false);
       setSelectedPlayer(playerId);
@@ -1368,10 +1446,12 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                 {/* Wikipedia Results */}
                 {wikiResults.length > 0 && (
                   <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
+                      Click "Add" to instantly add player with Wikipedia data:
+                    </div>
                     {wikiResults.map((result, idx) => (
                       <div
                         key={idx}
-                        onClick={() => applyWikiResult(result)}
                         style={{
                           display: 'flex',
                           gap: 12,
@@ -1379,36 +1459,66 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                           background: colors.card,
                           borderRadius: 8,
                           marginBottom: 8,
-                          cursor: 'pointer',
                           border: `1px solid ${colors.border}`,
-                          transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e) => e.currentTarget.style.borderColor = colors.accent}
-                        onMouseOut={(e) => e.currentTarget.style.borderColor = colors.border}
                       >
                         {result.imageUrl && (
                           <img 
                             src={result.imageUrl} 
                             alt="" 
-                            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }}
+                            style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8 }}
                           />
+                        )}
+                        {!result.imageUrl && (
+                          <div style={{ 
+                            width: 70, height: 70, borderRadius: 8, 
+                            background: colors.bg, 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 24, color: colors.muted
+                          }}>
+                            {result.title?.charAt(0)}
+                          </div>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 600, color: colors.text, marginBottom: 2 }}>{result.title}</div>
                           <div style={{ fontSize: 11, color: colors.accent, marginBottom: 4 }}>{result.description}</div>
                           <div style={{ fontSize: 12, color: colors.muted, lineHeight: 1.4 }}>
-                            {result.extract?.slice(0, 150)}...
+                            {result.extract?.slice(0, 120)}...
                           </div>
                         </div>
-                        <div style={{ 
-                          padding: '4px 8px', 
-                          background: `${colors.accent}20`, 
-                          borderRadius: 4, 
-                          fontSize: 11, 
-                          color: colors.accent,
-                          alignSelf: 'center'
-                        }}>
-                          Use
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignSelf: 'center' }}>
+                          <button
+                            onClick={() => quickAddFromWikipedia(result)}
+                            disabled={isLoading}
+                            style={{ 
+                              padding: '8px 16px', 
+                              background: colors.success,
+                              borderRadius: 6, 
+                              border: 'none',
+                              fontSize: 13, 
+                              fontWeight: 600,
+                              color: '#fff',
+                              cursor: isLoading ? 'not-allowed' : 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            ✓ Add
+                          </button>
+                          <button
+                            onClick={() => applyWikiResult(result)}
+                            style={{ 
+                              padding: '6px 12px', 
+                              background: 'transparent',
+                              borderRadius: 6, 
+                              border: `1px solid ${colors.border}`,
+                              fontSize: 11, 
+                              color: colors.muted,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            Edit first
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1990,6 +2100,55 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     <div style={{ fontSize: 13, opacity: 0.7 }}>Stored in Supabase Storage</div>
                   </div>
 
+                  {/* Fetch from Wikipedia button */}
+                  <button
+                    onClick={async () => {
+                      setImportStatus({ type: 'loading', message: 'Fetching from Wikipedia...' });
+                      try {
+                        const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(currentPlayer.name)}`;
+                        const res = await fetch(searchUrl);
+                        const data = await res.json();
+                        
+                        if (data.thumbnail?.source || data.originalimage?.source) {
+                          const imageUrl = data.thumbnail?.source || data.originalimage?.source;
+                          
+                          // Update in database if custom player
+                          if (customPlayers[selectedPlayer]) {
+                            await db.updateCustomPlayer(selectedPlayer, {
+                              ...customPlayers[selectedPlayer],
+                              imageUrl: imageUrl
+                            });
+                            setCustomPlayers(prev => ({
+                              ...prev,
+                              [selectedPlayer]: { ...prev[selectedPlayer], image_url: imageUrl, imageUrl: imageUrl }
+                            }));
+                          }
+                          
+                          setImportStatus({ type: 'success', message: 'Image updated from Wikipedia!' });
+                          onPlayersUpdated?.();
+                        } else {
+                          setImportStatus({ type: 'error', message: 'No image found on Wikipedia' });
+                        }
+                      } catch (e) {
+                        setImportStatus({ type: 'error', message: 'Failed to fetch from Wikipedia' });
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: 8,
+                      border: `1px solid ${colors.accent}40`,
+                      background: `${colors.accent}15`,
+                      color: colors.accent,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginTop: 12
+                    }}
+                  >
+                    🔄 Fetch Image from Wikipedia
+                  </button>
+
                   {playerOverrides[selectedPlayer]?.customImageUrl && (
                     <button
                       onClick={async () => {
@@ -2391,7 +2550,7 @@ function SystemDiagnostics({ colors }) {
           fontSize: 12,
           opacity: 0.5
         }}>
-          ChessGrandmaster v2.1.1
+          ChessGrandmaster v2.2.0
         </div>
       </div>
     </div>

@@ -1,8 +1,16 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.1.1
+ * Version: 2.2.0
  * Last Updated: January 20, 2026
  * 
+ * v2.2.0 - Seamless Player Management
+ *   - One-click "Add" from Wikipedia search results
+ *   - Wikipedia image/bio automatically saved to database
+ *   - Added Kramnik, Capablanca, Karpov to built-in players
+ *   - "Fetch Image from Wikipedia" button for existing players
+ *   - Fixed onPlayersUpdated callback for instant refresh
+ *   - Custom players now properly show in Masters section
+ *
  * v2.1.1 - Coaching Board Fix
  *   - Fixed piece movement in PuzzleTrainer and InteractiveLesson
  *   - Board now uses correct props (interactive, onMove) 
@@ -159,7 +167,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "2.1.1";
+const APP_VERSION = "2.2.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -1638,6 +1646,7 @@ export default function App() {
             <AdminPanel 
               theme={theme}
               onClose={() => setShowAdminPanel(false)}
+              onPlayersUpdated={loadCustomPlayers}
             />
           </div>
         </div>

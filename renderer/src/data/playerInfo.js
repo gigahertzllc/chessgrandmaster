@@ -302,6 +302,157 @@ His friendly demeanor and sportsmanship have made him one of the most beloved fi
     era: "1969-",
     pgnFile: null,
     totalGames: null
+  },
+  
+  kramnik: {
+    id: "kramnik",
+    name: "Vladimir Kramnik",
+    fullName: "Vladimir Borisovich Kramnik",
+    born: "June 25, 1975",
+    died: null,
+    birthPlace: "Tuapse, Russia",
+    deathPlace: null,
+    nationality: "Russian",
+    titles: [
+      "World Champion (2000-2007)",
+      "Grandmaster (1991)"
+    ],
+    peakRating: 2817,
+    worldChampion: "2000-2007",
+    
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Vladimir_Kramnik_2_%28cropped%29.jpg/440px-Vladimir_Kramnik_2_%28cropped%29.jpg",
+    imageAlt: "Vladimir Kramnik",
+    imageCredit: "Wikipedia Commons",
+    
+    bio: `Vladimir Kramnik is a Russian chess grandmaster who was the Classical World Chess Champion from 2000 to 2006 and the undisputed World Champion from 2006 to 2007.
+
+Kramnik defeated Garry Kasparov in the 2000 World Championship match, ending Kasparov's 15-year reign. It was one of the biggest upsets in chess history.
+
+Known for his deep positional understanding and exceptional endgame technique, Kramnik was nicknamed "the Drawmaster" for his ability to neutralize opponents' advantages.
+
+He pioneered the Berlin Defense against the Ruy Lopez, making it a respectable weapon at the highest level.
+
+Kramnik retired from professional chess in 2019 after a distinguished career spanning nearly three decades at the world elite level.`,
+
+    famousGames: [
+      "vs Kasparov WC 2000 Game 2 - Berlin Wall",
+      "vs Topalov WC 2006",
+      "vs Deep Fritz 2006"
+    ],
+    
+    playingStyle: "Positional mastermind with exceptional endgame technique. Known for deep preparation and solid, grinding style.",
+    
+    quotes: [
+      "Chess is not for timid souls.",
+      "I think it's almost impossible to play with the computer and not lose.",
+      "My style is somewhere between that of Tal and Petrosian."
+    ],
+    
+    icon: "🏰",
+    era: "1975-",
+    pgnFile: null,
+    totalGames: null
+  },
+  
+  capablanca: {
+    id: "capablanca",
+    name: "José Capablanca",
+    fullName: "José Raúl Capablanca y Graupera",
+    born: "November 19, 1888",
+    died: "March 8, 1942",
+    birthPlace: "Havana, Cuba",
+    deathPlace: "New York City, USA",
+    nationality: "Cuban",
+    titles: [
+      "World Champion (1921-1927)",
+      "Grandmaster"
+    ],
+    peakRating: null,
+    worldChampion: "1921-1927",
+    
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/JR_Capablanca_and_E_Lasker_1925.jpg/440px-JR_Capablanca_and_E_Lasker_1925.jpg",
+    imageAlt: "José Capablanca",
+    imageCredit: "Wikipedia Commons (Public Domain)",
+    
+    bio: `José Raúl Capablanca was a Cuban chess player who was World Chess Champion from 1921 to 1927. He is considered one of the greatest players of all time.
+
+A child prodigy, Capablanca learned chess at age 4 by watching his father play. He was largely self-taught and relied on natural talent rather than extensive study.
+
+His playing style was characterized by exceptional clarity, simplicity, and technical perfection. He made difficult positions look easy.
+
+Capablanca lost only 34 serious games in his entire career and went undefeated from 1916 to 1924, a period of eight years.
+
+Known as the "Human Chess Machine" for his seemingly effortless play and near-perfect technique.`,
+
+    famousGames: [
+      "vs Marshall 1918 - Marshall Attack refutation",
+      "vs Lasker WC 1921",
+      "vs Tartakower 1924"
+    ],
+    
+    playingStyle: "Pure technique and clarity. Made complex positions look simple. Exceptional endgame mastery with minimal effort.",
+    
+    quotes: [
+      "A good player is always lucky.",
+      "Chess books should be used as we use glasses: to assist the sight.",
+      "In order to improve your game, you must study the endgame before everything else."
+    ],
+    
+    icon: "💎",
+    era: "1888-1942",
+    pgnFile: null,
+    totalGames: null
+  },
+  
+  karpov: {
+    id: "karpov",
+    name: "Anatoly Karpov",
+    fullName: "Anatoly Yevgenyevich Karpov",
+    born: "May 23, 1951",
+    died: null,
+    birthPlace: "Zlatoust, Soviet Union",
+    deathPlace: null,
+    nationality: "Russian",
+    titles: [
+      "World Champion (1975-1985)",
+      "FIDE World Champion (1993-1999)",
+      "Grandmaster (1970)"
+    ],
+    peakRating: 2780,
+    worldChampion: "1975-1985, 1993-1999",
+    
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Karpov%2C_Pair_rapid_2009-1.jpg/440px-Karpov%2C_Pair_rapid_2009-1.jpg",
+    imageAlt: "Anatoly Karpov",
+    imageCredit: "Wikipedia Commons",
+    
+    bio: `Anatoly Karpov is a Russian chess grandmaster and former World Chess Champion. He was the official world champion from 1975 to 1985 and FIDE World Champion from 1993 to 1999.
+
+Karpov became World Champion in 1975 by default when Bobby Fischer refused to defend his title. He then dominated the chess world for a decade.
+
+His legendary rivalry with Garry Kasparov produced five World Championship matches and some of the most dramatic moments in chess history.
+
+Known for his "boa constrictor" style - slowly squeezing opponents with small advantages until they cracked. His positional mastery is considered among the best ever.
+
+Karpov has won more tournaments and games than any other player in chess history.`,
+
+    famousGames: [
+      "vs Kasparov WC 1985 Game 16",
+      "vs Kasparov WC 1987 Seville",
+      "vs Spassky Candidates 1974"
+    ],
+    
+    playingStyle: "Boa constrictor style - patient, positional play that slowly suffocates opponents. Master of prophylaxis and small advantages.",
+    
+    quotes: [
+      "Style? I have no style.",
+      "The most important thing in chess is to learn to wait.",
+      "Chess is everything: art, science, and sport."
+    ],
+    
+    icon: "🐍",
+    era: "1951-",
+    pgnFile: null,
+    totalGames: null
   }
 };
 
