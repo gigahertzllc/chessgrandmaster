@@ -1,9 +1,9 @@
 /**
  * ChessGrandmaster 2026
- * Version: 1.7.0
+ * Version: 1.8.0
  * Last Updated: January 18, 2026
  * 
- * v1.7.0 - Chess Coach Module
+ * v1.8.0 - Modern Chess Concepts
  *   - New AI-powered Chess Coach training system
  *   - Skill assessment to establish baseline (5 questions)
  *   - Structured curriculum with beginner/intermediate/advanced modules
@@ -140,7 +140,7 @@ import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "1.7.0";
+const APP_VERSION = "1.8.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography

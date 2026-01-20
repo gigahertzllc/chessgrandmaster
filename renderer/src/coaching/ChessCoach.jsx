@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { skillCategories, getAllSkills, ratingToSkillLevel } from "./data/skillDefinitions.js";
 import { coachingModules, getAllModules, getModulesByLevel, calculateModuleProgress } from "./data/curriculum.js";
 import CoachingSession from "./CoachingSession.jsx";
@@ -46,28 +46,186 @@ function getRandomMessage(category) {
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
+// Generate personalized welcome based on user progress
+function generatePersonalizedWelcome(userProfile, completedSessions, userSkills) {
+  // New user - no data
+  if (!userProfile?.lastTrainingDate && completedSessions.length === 0) {
+    return getRandomMessage("welcome");
+  }
+
+  const greetings = [
+    "Welcome back!",
+    "Hey, good to see you again!",
+    "Glad you're back!",
+    "Hey there, welcome back!"
+  ];
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  // Find what they worked on recently
+  let recentWork = "";
+  if (completedSessions.length > 0) {
+    const lastSessionId = completedSessions[completedSessions.length - 1];
+    // Find the session and module
+    for (const mod of Object.values(coachingModules)) {
+      const session = mod.sessions.find(s => s.id === lastSessionId);
+      if (session) {
+        const topics = {
+          fundamentals: "the fundamentals",
+          tacticsBasics: "basic tactics",
+          tacticsIntermediate: "intermediate tactics",
+          tacticsAdvanced: "advanced tactics",
+          openings: "opening principles",
+          middlegame: "middlegame strategy",
+          endgames: "endgame technique",
+          modernConcepts: "modern chess concepts",
+          antiTheory: "anti-theory openings"
+        };
+        recentWork = topics[mod.id] || mod.name.toLowerCase();
+        break;
+      }
+    }
+  }
+
+  // Find weakest skill category
+  let weakestArea = "";
+  let suggestion = "";
+  
+  if (Object.keys(userSkills).length > 0) {
+    // Group skills by category and calculate averages
+    const categoryScores = {};
+    const categoryNames = {
+      tactics: "tactics",
+      openings: "openings", 
+      middlegame: "middlegame strategy",
+      endgame: "endgames",
+      calculation: "calculation"
+    };
+
+    for (const [skillId, skillData] of Object.entries(userSkills)) {
+      // Find which category this skill belongs to
+      for (const [catId, cat] of Object.entries(skillCategories)) {
+        if (cat.skills.some(s => s.id === skillId)) {
+          if (!categoryScores[catId]) categoryScores[catId] = [];
+          categoryScores[catId].push(skillData.level || 1);
+        }
+      }
+    }
+
+    // Find lowest average
+    let lowestAvg = Infinity;
+    let lowestCat = null;
+    for (const [catId, scores] of Object.entries(categoryScores)) {
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      if (avg < lowestAvg) {
+        lowestAvg = avg;
+        lowestCat = catId;
+      }
+    }
+
+    if (lowestCat) {
+      weakestArea = categoryNames[lowestCat] || lowestCat;
+    }
+  }
+
+  // Build the message
+  let message = greeting;
+
+  // Add recent work context
+  if (recentWork) {
+    const recentPhrases = [
+      `Last time you were working on ${recentWork}.`,
+      `I see you've been focusing on ${recentWork}.`,
+      `Great progress on ${recentWork} last session.`
+    ];
+    message += " " + recentPhrases[Math.floor(Math.random() * recentPhrases.length)];
+  }
+
+  // Add suggestion based on weakness
+  if (weakestArea && weakestArea !== recentWork) {
+    const suggestions = [
+      `I think we should spend some time on ${weakestArea} today — that's an area where you could really level up.`,
+      `How about we work on ${weakestArea}? A bit of practice there would really strengthen your game.`,
+      `Want to focus on ${weakestArea} today? I've noticed that could use some attention.`,
+      `Let's sharpen your ${weakestArea}. A little work there will pay off big time.`
+    ];
+    message += " " + suggestions[Math.floor(Math.random() * suggestions.length)];
+  } else if (recentWork) {
+    // Continue with what they were doing
+    const continuePhrases = [
+      "Want to keep building on that momentum?",
+      "Ready to continue where we left off?",
+      "Should we pick up where we left off, or try something new?"
+    ];
+    message += " " + continuePhrases[Math.floor(Math.random() * continuePhrases.length)];
+  }
+
+  // If no specific context, give general encouragement
+  if (!recentWork && !weakestArea) {
+    const generalPhrases = [
+      "What would you like to work on today?",
+      "Ready to sharpen your skills?",
+      "Let's make today's training count!"
+    ];
+    message += " " + generalPhrases[Math.floor(Math.random() * generalPhrases.length)];
+  }
+
+  return message;
+}
+
 // Main component
 export default function ChessCoach({ userProfile, onUpdateProfile, onBack }) {
   const [view, setView] = useState("home"); // home | assess | training | session | analyze | progress
   const [selectedModule, setSelectedModule] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
-  const [coachMessage, setCoachMessage] = useState(getRandomMessage("welcome"));
+  const [coachMessage, setCoachMessage] = useState(""); // Start empty, will be set by effect
   const [userSkills, setUserSkills] = useState(userProfile?.skills || {});
   const [completedSessions, setCompletedSessions] = useState(userProfile?.completedSessions || []);
   const [estimatedRating, setEstimatedRating] = useState(userProfile?.estimatedRating || null);
   const [assessmentNeeded, setAssessmentNeeded] = useState(!userProfile?.estimatedRating);
   const [gameToAnalyze, setGameToAnalyze] = useState(null);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [hasSpokenWelcome, setHasSpokenWelcome] = useState(false);
 
   // Voice synthesis for coach feedback
   const voice = useCoachVoice();
 
-  // Speak coach messages when they change
+  // Generate personalized welcome on mount with slight delay for voice to load
+  useEffect(() => {
+    if (!hasSpokenWelcome) {
+      // Small delay to ensure voices are loaded (especially on Chrome)
+      const timer = setTimeout(() => {
+        const welcomeMsg = generatePersonalizedWelcome(userProfile, completedSessions, userSkills);
+        setCoachMessage(welcomeMsg);
+        setHasSpokenWelcome(true);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Speak coach messages when they change (and voice is enabled)
   useEffect(() => {
     if (coachMessage && voice.isEnabled) {
-      voice.speak(coachMessage);
+      // Small delay to ensure voice is ready
+      const timer = setTimeout(() => {
+        voice.speak(coachMessage);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [coachMessage]);
+  }, [coachMessage, voice.isEnabled]);
+
+  // Update welcome when returning to home view
+  useEffect(() => {
+    if (view === "home" && hasSpokenWelcome) {
+      // Only regenerate if coming back from another view (not initial load)
+      const returnMessages = [
+        "Back to the training hub. What's next?",
+        "Ready for more? Let's pick something to work on.",
+        "Good stuff! What would you like to focus on now?"
+      ];
+      setCoachMessage(returnMessages[Math.floor(Math.random() * returnMessages.length)]);
+    }
+  }, [view]);
 
   // Save progress
   const saveProgress = useCallback((updates) => {

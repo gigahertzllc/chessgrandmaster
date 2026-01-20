@@ -54,9 +54,13 @@ export function useCoachVoice() {
       // Chrome loads voices async
       window.speechSynthesis.onvoiceschanged = loadVoices;
       
-      // Load saved preference
+      // Load saved preference - default to ON for coach experience
       const savedEnabled = localStorage.getItem("coachVoiceEnabled");
-      if (savedEnabled === "true") {
+      // If never set before, default to true (enabled)
+      if (savedEnabled === null) {
+        setIsEnabled(true);
+        localStorage.setItem("coachVoiceEnabled", "true");
+      } else if (savedEnabled === "true") {
         setIsEnabled(true);
       }
     }
