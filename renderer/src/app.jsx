@@ -1,8 +1,30 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.7.0
- * Last Updated: January 20, 2026
+ * Version: 3.1.1
+ * Last Updated: January 21, 2026
  * 
+ * v3.1.1 - Classic Theme Vertical Player Cards
+ *   - Classic theme: Vertical cards with full background images (aspect 3:4)
+ *   - Classic theme: Grayscale images, color on hover
+ *   - Classic theme: Large initial letter watermark behind name
+ *   - Classic theme: Name is clickable → opens Biography
+ *   - Classic theme: Click card → loads games
+ *   - Modern theme: Keeps horizontal card layout with bio excerpt
+ *
+ * v3.1.0 - Modular CSS Architecture
+ *   - Split themes.css into modular files:
+ *     - base.css: Reset, variables, utilities, animations
+ *     - components.css: Theme-agnostic component structure  
+ *     - modern.css: Modern theme colors + overrides
+ *     - classic.css: Classic theme colors + overrides
+ *   - Added 50+ semantic classNames to JSX for CSS targeting
+ *   - Theme class wrapper: .theme-modern/.theme-classic + .dark/.light
+ *
+ * v3.0.2 - CSS Theme Refactor (Additive)
+ *   - Restored v2.7.0 full functionality
+ *   - Added className attributes for CSS theming
+ *   - themes.css works alongside inline styles
+ *
  * v2.7.0 - Classic Theme & 3D Board Fixes
  *   - NEW: Classic Dark theme (editorial, no emojis)
  *   - NEW: Classic Light theme (clean typography)
@@ -226,13 +248,16 @@ import { PLAYERS, getPlayer } from "./data/playerInfo.js";
 import { getGamesByMaster } from "./data/mastersDatabase.js";
 import { listBoardThemes } from "./components/cm-board/themes/boardThemes.js";
 import useResponsive, { getBoardSize, getSpacing } from "./hooks/useResponsive.js";
+import "./styles/base.css";
+import "./styles/components.css";
+import "./styles/modern.css";
+import "./styles/classic.css";
 import "./styles/responsive.css";
-import "./styles/themes.css";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "3.0.2";
+const APP_VERSION = "3.1.1";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -1296,76 +1321,135 @@ export default function App() {
                       onClick={() => loadMaster(id)} 
                       style={{
                         backgroundColor: theme.card,
-                        borderRadius: isMobile ? 12 : 16,
+                        borderRadius: isClassic ? 0 : (isMobile ? 12 : 16),
                         overflow: "hidden",
                         border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                         transition: "all 0.2s ease",
                         cursor: "pointer",
                         display: "flex",
-                        flexDirection: "column"
+                        flexDirection: "column",
+                        backgroundImage: isClassic && player.imageUrl ? `url(${player.imageUrl})` : "none",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center top"
                       }}
                       onMouseOver={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60"; }}
                       onMouseOut={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border; }}
                     >
                       {/* Top Section - Image + Basic Info */}
-                      <div className="player-card-header" style={{ display: "flex", height: isMobile ? 100 : 140 }}>
-                        {/* Player Image */}
-                        <div className="player-image" style={{ 
-                          width: isMobile ? 100 : 140,
-                          minWidth: isMobile ? 100 : 140,
-                          backgroundColor: theme.bgAlt,
-                          backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
-                          backgroundSize: "cover",
-                          backgroundPosition: "center top",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center"
-                        }}>
-                          {!player.imageUrl && (
-                            <div className="player-avatar" style={{ 
-                              width: isMobile ? 50 : 70, 
-                              height: isMobile ? 50 : 70, 
-                              borderRadius: "50%", 
-                              background: theme.accentSoft,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: isMobile ? 20 : 28,
-                              color: theme.accent
-                            }}>
-                              {player.name.charAt(0)}
-                            </div>
-                          )}
-                        </div>
+                      <div className="player-card-header" style={{ display: isClassic ? "block" : "flex", height: isClassic ? "auto" : (isMobile ? 100 : 140) }}>
+                        {/* Player Image - hidden in classic (uses card background instead) */}
+                        {!isClassic && (
+                          <div className="player-image" style={{ 
+                            width: isMobile ? 100 : 140,
+                            minWidth: isMobile ? 100 : 140,
+                            backgroundColor: theme.bgAlt,
+                            backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
+                            backgroundSize: "cover",
+                            backgroundPosition: "center top",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}>
+                            {!player.imageUrl && (
+                              <div className="player-avatar" style={{ 
+                                width: isMobile ? 50 : 70, 
+                                height: isMobile ? 50 : 70, 
+                                borderRadius: "50%", 
+                                background: theme.accentSoft,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: isMobile ? 20 : 28,
+                                color: theme.accent
+                              }}>
+                                {player.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         
-                        {/* Quick Info */}
-                        <div className="player-info" style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                          <div className="player-name" style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
-                            {player.name}
+                        {/* Large initial letter for classic theme */}
+                        {isClassic && (
+                          <div className="player-avatar" style={{
+                            position: "absolute",
+                            bottom: 40,
+                            right: -10,
+                            fontSize: isMobile ? 100 : 140,
+                            fontFamily: fonts.display,
+                            fontWeight: 400,
+                            color: "rgba(255,255,255,0.08)",
+                            lineHeight: 1,
+                            pointerEvents: "none"
+                          }}>
+                            {player.name.charAt(0)}
                           </div>
-                          <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
-                            {player.nationality}
+                        )}
+                        
+                        {/* Quick Info - different layout for classic vs modern */}
+                        {!isClassic && (
+                          <div className="player-info" style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                            <div className="player-name" style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
+                              {player.name}
+                            </div>
+                            <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
+                              {player.nationality}
+                            </div>
+                            
+                            {/* Key Stats */}
+                            <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                              {player.peakRating && (
+                                <div>
+                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
+                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
+                                </div>
+                              )}
+                              {player.worldChampion && (
+                                <div>
+                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
+                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          
-                          {/* Key Stats */}
-                          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-                            {player.peakRating && (
-                              <div>
-                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
-                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
-                              </div>
-                            )}
-                            {player.worldChampion && (
-                              <div>
-                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
-                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                       
-                      {/* Bottom Section - Bio + Actions */}
+                      {/* Classic theme: info at bottom with gradient overlay */}
+                      {isClassic && (
+                        <div className="player-info" style={{
+                          marginTop: "auto",
+                          padding: isMobile ? 16 : 20,
+                          background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.95))",
+                          position: "relative",
+                          zIndex: 2
+                        }}>
+                          <div 
+                            className="player-name" 
+                            onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
+                            style={{ 
+                              fontFamily: fonts.display, 
+                              fontSize: isMobile ? 16 : 20, 
+                              fontWeight: 400, 
+                              color: "#fff", 
+                              marginBottom: 4,
+                              textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              textDecorationColor: "rgba(255,255,255,0.3)",
+                              textUnderlineOffset: "3px"
+                            }}>
+                            {player.name}
+                          </div>
+                          <div className="player-era" style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", letterSpacing: "0.05em" }}>
+                            {player.era || player.nationality}
+                          </div>
+                          <div className="player-games" style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            {gameCount} games
+                          </div>
+                        </div>
+                      )}
+                      {/* Bottom Section - Bio + Actions (modern theme only) */}
+                      {!isClassic && (
                       <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
                         {/* Bio Excerpt */}
                         <p style={{ 
@@ -1417,6 +1501,7 @@ export default function App() {
                           </button>
                         </div>
                       </div>
+                      )}
                     </div>
                   );
                 })}

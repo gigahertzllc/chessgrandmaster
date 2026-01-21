@@ -1,0 +1,705 @@
+/**
+ * CHESS GRANDMASTER - CLASSIC THEME
+ * 
+ * Sophisticated editorial design inspired by traditional print media.
+ * Clean typography, minimal decoration, serif fonts, no emojis.
+ * 
+ * Usage: .theme-classic.dark or .theme-classic.light on root element
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC THEME - COLOR VARIABLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic.dark {
+  --bg: #0d0d0d;
+  --bg-alt: #141414;
+  --bg-elevated: #1a1a1a;
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  
+  --ink: #e8e4dc;
+  --ink-muted: #8a8680;
+  --ink-faint: #5a5855;
+  
+  --accent: #c9a227;
+  --accent-soft: rgba(201, 162, 39, 0.1);
+  --accent-text: #0d0d0d;
+  
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  
+  --success: #6b8e23;
+  --error: #8b0000;
+  --warning: #cd853f;
+  
+  --card: #141414;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-strong: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.theme-classic.light {
+  --bg: #faf8f5;
+  --bg-alt: #f5f3f0;
+  --bg-elevated: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.02);
+  
+  --ink: #1a1815;
+  --ink-muted: #6b6560;
+  --ink-faint: #9a9590;
+  
+  --accent: #8b4513;
+  --accent-soft: rgba(139, 69, 19, 0.08);
+  --accent-text: #ffffff;
+  
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  
+  --success: #228b22;
+  --error: #b22222;
+  --warning: #cd853f;
+  
+  --card: #ffffff;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --shadow-strong: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+.theme-classic h1,
+.theme-classic h2,
+.theme-classic h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: HEADER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.theme-classic .header-inner {
+  padding: 20px 24px;
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .header-inner {
+    padding: 24px 40px;
+  }
+}
+
+.theme-classic .logo {
+  gap: var(--space-lg);
+}
+
+.theme-classic .logo-icon {
+  font-size: 32px;
+  color: var(--accent);
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .logo-icon {
+    font-size: 36px;
+  }
+}
+
+.theme-classic .logo-text {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .logo-text {
+    font-size: 26px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .nav {
+  gap: 32px;
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .nav {
+    gap: 48px;
+  }
+}
+
+.theme-classic .nav-item {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  padding: 12px 0;
+  opacity: 0.6;
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .nav-item {
+    font-size: 14px;
+  }
+}
+
+.theme-classic .nav-item.active {
+  opacity: 1;
+}
+
+.theme-classic .nav-indicator {
+  height: 1px;
+  background: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: MOBILE NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .mobile-nav {
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 12px 8px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+}
+
+.theme-classic .mobile-nav-item {
+  padding: 10px 20px;
+  gap: 6px;
+  color: var(--ink-muted);
+}
+
+.theme-classic .mobile-nav-item.active {
+  color: var(--accent);
+}
+
+.theme-classic .mobile-nav-icon {
+  font-size: 18px;
+  font-weight: 300;
+}
+
+.theme-classic .mobile-nav-label {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.theme-classic .mobile-nav-item.active .mobile-nav-label {
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: MAIN CONTENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .main {
+  padding: 16px;
+}
+
+@media (min-width: 768px) {
+  .theme-classic .main {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .main {
+    padding: 48px;
+  }
+}
+
+.theme-classic .library-hero-title {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  margin-bottom: 32px;
+  letter-spacing: 0.01em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: SOURCE TABS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .source-tabs {
+  gap: 16px;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.theme-classic .source-tab {
+  padding: 12px 0;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+}
+
+.theme-classic .source-tab:hover {
+  color: var(--ink);
+}
+
+.theme-classic .source-tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: SEARCH BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .search-bar {
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.theme-classic .search-input {
+  padding: 16px 20px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-base);
+  border-radius: 0;
+}
+
+.theme-classic .search-input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.theme-classic .search-btn {
+  padding: 16px 32px;
+  background: transparent;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.theme-classic .search-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: CATEGORY FILTERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .category-filters {
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.theme-classic .category-btn {
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+.theme-classic .category-btn:hover {
+  border-color: var(--ink-muted);
+  color: var(--ink);
+}
+
+.theme-classic .category-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: PLAYER GRID & CARDS - VERTICAL EDITORIAL DESIGN
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .player-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .theme-classic .player-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .player-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .theme-classic .player-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Vertical card with full background image */
+.theme-classic .player-card {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  filter: grayscale(100%);
+  transition: filter var(--transition), border-color var(--transition);
+}
+
+.theme-classic .player-card:hover {
+  filter: grayscale(0%);
+  border-color: var(--accent);
+  transform: none;
+}
+
+.theme-classic .player-card.active {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+
+/* Hide the default header layout in classic vertical cards */
+.theme-classic .player-card-header {
+  position: absolute;
+  inset: 0;
+  height: auto !important;
+  display: block;
+}
+
+/* Full background image with grayscale */
+.theme-classic .player-image {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  min-width: 100% !important;
+  height: 100%;
+  background-color: var(--bg-alt);
+  filter: grayscale(100%);
+  transition: filter var(--transition);
+}
+
+.theme-classic .player-card:hover .player-image {
+  filter: grayscale(0%);
+}
+
+/* Large initial letter behind name */
+.theme-classic .player-avatar {
+  position: absolute;
+  bottom: 40px;
+  right: -10px;
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.08);
+  font-family: var(--font-display);
+  font-size: 140px !important;
+  font-weight: 400;
+  line-height: 1;
+  z-index: 0;
+  border-radius: 0;
+}
+
+@media (min-width: 768px) {
+  .theme-classic .player-avatar {
+    font-size: 180px !important;
+    bottom: 50px;
+    right: -15px;
+  }
+}
+
+/* Player info overlay at bottom */
+.theme-classic .player-info {
+  position: relative;
+  z-index: 2;
+  padding: 16px;
+  background: transparent;
+}
+
+@media (min-width: 768px) {
+  .theme-classic .player-info {
+    padding: 20px;
+  }
+}
+
+.theme-classic .player-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  color: #ffffff;
+  margin-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 768px) {
+  .theme-classic .player-name {
+    font-size: 20px;
+  }
+}
+
+.theme-classic .player-era {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.05em;
+}
+
+.theme-classic .player-games {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: GAME LIST & CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .game-viewer-layout {
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .theme-classic .game-viewer-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .theme-classic .game-viewer-layout {
+    grid-template-columns: 240px 1fr 300px;
+  }
+}
+
+.theme-classic .game-list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.theme-classic .panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.theme-classic .game-list-scroll {
+  max-height: 600px;
+}
+
+.theme-classic .game-card {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.theme-classic .game-card:last-child {
+  border-bottom: none;
+}
+
+.theme-classic .game-card.active {
+  background: var(--accent-soft);
+}
+
+.theme-classic .game-title span {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.theme-classic .game-meta {
+  margin-top: 6px;
+}
+
+.theme-classic .game-meta span {
+  font-size: 11px;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: PANELS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.theme-classic .board-panel {
+  padding: 32px;
+}
+
+.theme-classic .settings-panel {
+  padding: 20px;
+  box-shadow: var(--shadow-strong);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: BUTTONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .btn {
+  padding: 14px 24px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 0;
+}
+
+.theme-classic .btn:hover {
+  border-color: var(--ink);
+}
+
+.theme-classic .btn-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.theme-classic .btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: FORM ELEMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .form-select {
+  padding: 14px;
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--ink);
+  border-radius: 0;
+  font-size: 13px;
+}
+
+.theme-classic .theme-grid {
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.theme-classic .theme-btn {
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  border-radius: 0;
+}
+
+.theme-classic .theme-btn.active {
+  border-width: 2px;
+  border-color: var(--accent);
+}
+
+.theme-classic .theme-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  margin-bottom: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: CONTROL BUTTONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .control-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: 0;
+}
+
+.theme-classic .control-btn:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: OVERLAY
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.theme-classic .overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLASSIC: SPECIAL TYPOGRAPHY TREATMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Drop caps for article/bio content */
+.theme-classic .drop-cap::first-letter {
+  font-family: var(--font-display);
+  float: left;
+  font-size: 4em;
+  line-height: 0.8;
+  padding-right: 0.1em;
+  color: var(--accent);
+}
+
+/* Pull quotes */
+.theme-classic .pull-quote {
+  font-family: var(--font-display);
+  font-size: 1.5em;
+  font-style: italic;
+  border-left: 2px solid var(--accent);
+  padding-left: 1em;
+  margin: 2em 0;
+  color: var(--ink-muted);
+}
+
+/* Section dividers */
+.theme-classic .divider {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  color: var(--ink-faint);
+  margin: 2em 0;
+}
+
+.theme-classic .divider::before,
+.theme-classic .divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
