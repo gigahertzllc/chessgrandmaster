@@ -405,22 +405,23 @@ export const FAMOUS_GAMES = [
 ];
 
 // Group games by category for easy filtering
+// NOTE: Icons are provided by the theme via theme.icon("player", playerId)
 export const GAME_CATEGORIES = {
-  morphy: { name: "Paul Morphy", era: "1837-1884", icon: "👑", classicIcon: "I", count: "12+ games" },
-  steinitz: { name: "Wilhelm Steinitz", era: "1836-1900", icon: "🎩", classicIcon: "II" },
-  lasker: { name: "Emanuel Lasker", era: "1868-1941", icon: "🧠", classicIcon: "III" },
-  capablanca: { name: "Jose Raul Capablanca", era: "1888-1942", icon: "🎭", classicIcon: "IV" },
-  alekhine: { name: "Alexander Alekhine", era: "1892-1946", icon: "⚔️", classicIcon: "V" },
-  tal: { name: "Mikhail Tal", era: "1936-1992", icon: "🔮", classicIcon: "VI" },
-  fischer: { name: "Bobby Fischer", era: "1943-2008", icon: "🦅", classicIcon: "VII", count: "12+ games" },
-  kasparov: { name: "Garry Kasparov", era: "1963-", icon: "🔥", classicIcon: "VIII" },
-  karpov: { name: "Anatoly Karpov", era: "1951-", icon: "🐍", classicIcon: "IX" },
-  kramnik: { name: "Vladimir Kramnik", era: "1975-", icon: "🏰", classicIcon: "X" },
-  anand: { name: "Viswanathan Anand", era: "1969-", icon: "🐅", classicIcon: "XI" },
-  carlsen: { name: "Magnus Carlsen", era: "1990-", icon: "🧊", classicIcon: "XII", count: "12+ games" },
-  caruana: { name: "Fabiano Caruana", era: "1992-", icon: "🇺🇸", classicIcon: "XIII" },
-  ding: { name: "Ding Liren", era: "1992-", icon: "🐉", classicIcon: "XIV" },
-  modern: { name: "Modern Classics", era: "1990+", icon: "⭐", classicIcon: "◆" }
+  morphy: { name: "Paul Morphy", era: "1837-1884", count: "12+ games" },
+  steinitz: { name: "Wilhelm Steinitz", era: "1836-1900" },
+  lasker: { name: "Emanuel Lasker", era: "1868-1941" },
+  capablanca: { name: "Jose Raul Capablanca", era: "1888-1942" },
+  alekhine: { name: "Alexander Alekhine", era: "1892-1946" },
+  tal: { name: "Mikhail Tal", era: "1936-1992" },
+  fischer: { name: "Bobby Fischer", era: "1943-2008", count: "12+ games" },
+  kasparov: { name: "Garry Kasparov", era: "1963-" },
+  karpov: { name: "Anatoly Karpov", era: "1951-" },
+  kramnik: { name: "Vladimir Kramnik", era: "1975-" },
+  anand: { name: "Viswanathan Anand", era: "1969-" },
+  carlsen: { name: "Magnus Carlsen", era: "1990-", count: "12+ games" },
+  caruana: { name: "Fabiano Caruana", era: "1992-" },
+  ding: { name: "Ding Liren", era: "1992-" },
+  modern: { name: "Modern Classics", era: "1990+" }
 };
 
 // Combine famous games with masters database (avoiding duplicates by id)
