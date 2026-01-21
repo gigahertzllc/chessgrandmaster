@@ -2069,37 +2069,42 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                   <h4 style={{ margin: '0 0 12px 0' }}>Current Image</h4>
                   {currentPlayer.imageUrl ? (
                     <img
+                      key={currentPlayer.imageUrl} // Force re-render when URL changes
                       src={currentPlayer.imageUrl}
                       alt={currentPlayer.name}
                       style={styles.previewImg}
+                      onLoad={() => console.log('Image loaded successfully:', currentPlayer.imageUrl)}
                       onError={(e) => { 
-                        e.target.style.display = 'none'; 
-                        e.target.nextSibling.style.display = 'flex';
+                        console.error('Image failed to load:', currentPlayer.imageUrl);
+                        e.target.style.opacity = '0.3';
+                        e.target.style.border = '2px dashed red';
                       }}
                     />
-                  ) : null}
-                  <div style={{ 
-                    display: currentPlayer.imageUrl ? 'none' : 'flex',
-                    width: 120, 
-                    height: 120, 
-                    borderRadius: 8,
-                    background: colors.bg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 48,
-                    color: colors.muted,
-                    border: `2px dashed ${colors.border}`
-                  }}>
-                    {currentPlayer.icon || '?'}
-                  </div>
+                  ) : (
+                    <div style={{ 
+                      width: 120, 
+                      height: 120, 
+                      borderRadius: 8,
+                      background: colors.bg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 48,
+                      color: colors.muted,
+                      border: `2px dashed ${colors.border}`
+                    }}>
+                      {currentPlayer.icon || '?'}
+                    </div>
+                  )}
                   <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
                     {!currentPlayer.imageUrl ? '⚠️ No image set' :
                      playerOverrides[selectedPlayer]?.customImageUrl ? '✅ Custom (Supabase Storage)' : 
+                     customPlayers[selectedPlayer]?.imageUrl ? '✅ Custom Player Image' :
                      '📷 Wikipedia/Default'}
                   </div>
                   {currentPlayer.imageUrl && (
                     <div style={{ fontSize: 10, opacity: 0.4, marginTop: 4, wordBreak: 'break-all', maxWidth: 150 }}>
-                      {currentPlayer.imageUrl.substring(0, 50)}...
+                      {currentPlayer.imageUrl.substring(0, 60)}...
                     </div>
                   )}
                 </div>
@@ -2126,35 +2131,37 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                   <button
                     onClick={async () => {
                       setImportStatus({ type: 'loading', message: 'Fetching from Wikipedia...' });
-                      console.log('Fetching image for:', currentPlayer.name);
+                      console.log('=== FETCH IMAGE FROM WIKIPEDIA ===');
+                      console.log('Player name:', currentPlayer.name);
+                      console.log('Selected player ID:', selectedPlayer);
+                      console.log('Is custom player?', !!customPlayers[selectedPlayer]);
                       
                       try {
-                        // Try exact name first, then search
-                        let imageUrl = null;
                         const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(currentPlayer.name)}`;
-                        console.log('Fetching:', searchUrl);
+                        console.log('API URL:', searchUrl);
                         
                         const res = await fetch(searchUrl);
                         const data = await res.json();
                         console.log('Wikipedia response:', data);
                         
-                        if (data.thumbnail?.source) {
-                          imageUrl = data.thumbnail.source;
-                        } else if (data.originalimage?.source) {
-                          imageUrl = data.originalimage.source;
-                        }
+                        // Get the best image URL
+                        let imageUrl = data.thumbnail?.source || data.originalimage?.source || null;
                         
                         if (!imageUrl) {
+                          console.log('No image found in response');
                           setImportStatus({ type: 'error', message: 'No image found on Wikipedia for "' + currentPlayer.name + '"' });
                           return;
                         }
                         
-                        console.log('Found image:', imageUrl);
+                        console.log('Image URL found:', imageUrl);
                         
-                        // Different handling for custom vs built-in players
-                        if (customPlayers[selectedPlayer]) {
-                          // Custom player - update just the image_url field
-                          console.log('Updating custom player image');
+                        // Determine if this is a custom player or built-in
+                        const isCustomPlayer = !!customPlayers[selectedPlayer];
+                        console.log('Processing as:', isCustomPlayer ? 'CUSTOM PLAYER' : 'BUILT-IN PLAYER');
+                        
+                        if (isCustomPlayer) {
+                          // Custom player - update the custom_players table directly
+                          console.log('Calling db.updateCustomPlayerImage...');
                           const { error } = await db.updateCustomPlayerImage(selectedPlayer, imageUrl);
                           
                           if (error) {
@@ -2163,21 +2170,26 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                             return;
                           }
                           
-                          // Update local state
-                          setCustomPlayers(prev => ({
-                            ...prev,
-                            [selectedPlayer]: { 
-                              ...prev[selectedPlayer], 
-                              imageUrl: imageUrl 
-                            }
-                          }));
+                          console.log('DB updated successfully, updating local state...');
                           
-                          setImportStatus({ type: 'success', message: '✓ Image updated from Wikipedia!' });
+                          // Update local state - create new object to force re-render
+                          setCustomPlayers(prev => {
+                            const updated = {
+                              ...prev,
+                              [selectedPlayer]: { 
+                                ...prev[selectedPlayer], 
+                                imageUrl: imageUrl 
+                              }
+                            };
+                            console.log('New customPlayers state:', updated[selectedPlayer]);
+                            return updated;
+                          });
+                          
                         } else {
-                          // Built-in player - use overrides
-                          console.log('Updating built-in player via override');
+                          // Built-in player - use overrides table
+                          console.log('Calling db.savePlayerOverride...');
                           const updated = {
-                            ...playerOverrides[selectedPlayer],
+                            ...(playerOverrides[selectedPlayer] || {}),
                             customImageUrl: imageUrl
                           };
                           
@@ -2189,13 +2201,20 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                             return;
                           }
                           
-                          setPlayerOverrides(prev => ({
-                            ...prev,
-                            [selectedPlayer]: updated
-                          }));
+                          console.log('DB updated successfully, updating local state...');
                           
-                          setImportStatus({ type: 'success', message: '✓ Image updated from Wikipedia!' });
+                          setPlayerOverrides(prev => {
+                            const newState = {
+                              ...prev,
+                              [selectedPlayer]: updated
+                            };
+                            console.log('New playerOverrides state:', newState[selectedPlayer]);
+                            return newState;
+                          });
                         }
+                        
+                        setImportStatus({ type: 'success', message: '✓ Image saved! URL: ' + imageUrl.substring(0, 40) + '...' });
+                        console.log('=== FETCH COMPLETE ===');
                         
                         // Notify parent to refresh
                         onPlayersUpdated?.();
@@ -2219,6 +2238,33 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     }}
                   >
                     🔄 Fetch Image from Wikipedia
+                  </button>
+
+                  {/* Debug button */}
+                  <button
+                    onClick={() => {
+                      console.log('=== DEBUG STATE ===');
+                      console.log('selectedPlayer:', selectedPlayer);
+                      console.log('customPlayers[selectedPlayer]:', customPlayers[selectedPlayer]);
+                      console.log('playerOverrides[selectedPlayer]:', playerOverrides[selectedPlayer]);
+                      console.log('currentPlayer:', currentPlayer);
+                      console.log('currentPlayer.imageUrl:', currentPlayer.imageUrl);
+                      console.log('===================');
+                      alert(`Image URL: ${currentPlayer.imageUrl || 'NONE'}\n\nCheck console for full state.`);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: 8,
+                      border: `1px solid ${colors.border}`,
+                      background: 'transparent',
+                      color: colors.muted,
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      marginTop: 8
+                    }}
+                  >
+                    🔍 Debug: Show Current State
                   </button>
 
                   {playerOverrides[selectedPlayer]?.customImageUrl && (

@@ -1,8 +1,32 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.4.2
+ * Version: 2.6.1
  * Last Updated: January 20, 2026
  * 
+ * v2.6.1 - Puzzle Database Fixes
+ *   - Fixed illegal puzzle "Open the Position" (knight was pinned)
+ *   - Fixed broken mate-in-1 puzzles with invalid positions
+ *   - All puzzles now verified for legal moves
+ *   - Fixed pin_003 to have single clear solution
+ *
+ * v2.6.0 - Puzzle Trainer Improvements
+ *   - Manual "Next" button - no auto-advancing after solution shown
+ *   - Full review mode at end of training session
+ *   - Click any puzzle in results to review it
+ *   - Each puzzle now has:
+ *     - Solution with move sequence
+ *     - "Key Idea" - the tactical concept to remember
+ *     - "Why It Works" - detailed explanation of the pattern
+ *   - Track results: correct, missed, skipped for each puzzle
+ *   - Quick navigation to missed puzzles in review mode
+ *
+ * v2.5.0 - Image Debugging & Fixes
+ *   - Added extensive console logging for Wikipedia image fetch
+ *   - Added "Debug: Show Current State" button to inspect image state
+ *   - Image element now uses key={url} to force re-render on change
+ *   - Better error display when image fails to load (shows red dashed border)
+ *   - Removed .env.example from package (not needed)
+ *
  * v2.4.2 - Clickable Game Count in Profile
  *   - Game count in bio's "Famous Games" tab is now clickable
  *   - Clicking "X games in database → View Games" navigates to Masters section
@@ -197,7 +221,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "2.4.2";
+const APP_VERSION = "2.6.1";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
