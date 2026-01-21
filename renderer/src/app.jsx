@@ -155,11 +155,13 @@ export default function App() {
       return;
     }
     
-    auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    // Get initial user
+    auth.getUser().then(({ data: { user } }) => {
+      setUser(user ?? null);
       setAuthLoading(false);
     });
     
+    // Listen for auth changes
     const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });

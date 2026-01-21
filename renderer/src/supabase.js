@@ -29,6 +29,11 @@ export const auth = {
     return supabase.auth.getUser();
   },
   
+  getSession: async () => {
+    if (!supabase) return { data: { session: null } };
+    return supabase.auth.getSession();
+  },
+  
   onAuthStateChange: (callback) => {
     if (!supabase) return { data: { subscription: { unsubscribe: () => {} } } };
     return supabase.auth.onAuthStateChange(callback);
