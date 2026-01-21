@@ -1,9 +1,19 @@
 /**
  * ChessGrandmaster 2026
- * Version: 2.6.1
+ * Version: 2.7.0
  * Last Updated: January 20, 2026
  * 
- * v2.6.1 - Puzzle Database Fixes
+ * v2.7.0 - Classic Theme & 3D Board Fixes
+ *   - NEW: Classic Dark theme (editorial, no emojis)
+ *   - NEW: Classic Light theme (clean typography)
+ *   - 3D Board: Fixed camera angles and orientation
+ *   - 3D Board: White pieces now correctly at bottom
+ *   - 3D Board: Proper front-to-back tilt with pivot at center
+ *   - Zone Mode: Redesigned for Classic theme support
+ *   - All navigation updated for Classic theme (no emojis)
+ *   - Game categories updated with classic icons
+ *
+ * v2.6.2 - Zone Mode Improvements
  *   - Fixed illegal puzzle "Open the Position" (knight was pinned)
  *   - Fixed broken mate-in-1 puzzles with invalid positions
  *   - All puzzles now verified for legal moves
@@ -221,13 +231,14 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "2.6.1";
+const APP_VERSION = "2.7.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
 // ═══════════════════════════════════════════════════════════════════════════
 
 const THEMES = {
+  // Original themes
   light: {
     id: "light", name: "Light",
     bg: "#FAFAF8", bgAlt: "#F5F5F3",
@@ -267,15 +278,72 @@ const THEMES = {
     success: "#06D6A0", error: "#EF476F",
     border: "rgba(224,225,221,0.06)", borderStrong: "rgba(224,225,221,0.12)",
     shadow: "0 4px 24px rgba(0,0,0,0.5)", shadowStrong: "0 12px 48px rgba(0,0,0,0.7)",
+  },
+  // NEW: Classic Editorial themes (v2)
+  "classic-dark": {
+    id: "classic-dark", name: "Classic Dark",
+    bg: "#0C0C0E", bgAlt: "#141416",
+    card: "#141416", cardHover: "#1A1A1E",
+    ink: "#F5F5F3", inkMuted: "#A8A8A6", inkFaint: "#6B6B69",
+    accent: "#C9A227", accentSoft: "rgba(201, 162, 39, 0.15)",
+    success: "#3D8B40", error: "#C23B22",
+    border: "rgba(255, 255, 255, 0.08)", borderStrong: "rgba(255, 255, 255, 0.15)",
+    shadow: "0 2px 8px rgba(0, 0, 0, 0.4)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.6)",
+    isClassic: true
+  },
+  "classic-light": {
+    id: "classic-light", name: "Classic Light",
+    bg: "#FAFAF8", bgAlt: "#F5F5F3",
+    card: "#FFFFFF", cardHover: "#F5F5F3",
+    ink: "#1A1A1A", inkMuted: "#5C5C5A", inkFaint: "#8C8C8A",
+    accent: "#8B5A2B", accentSoft: "rgba(139, 90, 43, 0.1)",
+    success: "#2E7D32", error: "#C62828",
+    border: "rgba(0, 0, 0, 0.08)", borderStrong: "rgba(0, 0, 0, 0.15)",
+    shadow: "0 2px 8px rgba(0, 0, 0, 0.06)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.12)",
+    isClassic: true
   }
 };
 
 const SOURCES = {
-  classics: { id: "classics", name: "Classics", icon: "👑" },
-  masters: { id: "masters", name: "Masters", icon: "🏆" },
-  lichess: { id: "lichess", name: "Lichess", icon: "🐴" },
-  chesscom: { id: "chesscom", name: "Chess.com", icon: "♟" },
-  imported: { id: "imported", name: "My Games", icon: "📁" }
+  classics: { id: "classics", name: "Classics", icon: "👑", classicIcon: "♔" },
+  masters: { id: "masters", name: "Masters", icon: "🏆", classicIcon: "★" },
+  lichess: { id: "lichess", name: "Lichess", icon: "🐴", classicIcon: "♞" },
+  chesscom: { id: "chesscom", name: "Chess.com", icon: "♟", classicIcon: "♟" },
+  imported: { id: "imported", name: "My Games", icon: "📁", classicIcon: "▤" }
+};
+
+// Classic (emoji-free) icons for navigation
+const CLASSIC_ICONS = {
+  library: "◎",
+  play: "▶",
+  coach: "△",
+  zone: "◇",
+  training: "◇",
+  settings: "⚙",
+  close: "×",
+  back: "←",
+  forward: "→",
+  search: "⌕",
+  check: "✓",
+  star: "★",
+  flame: "◆"
+};
+
+// Regular emoji icons
+const EMOJI_ICONS = {
+  library: "📚",
+  play: "♟️",
+  coach: "🎓",
+  zone: "🎯",
+  training: "🎯",
+  settings: "⚙",
+  close: "✕",
+  back: "←",
+  forward: "→",
+  search: "🔍",
+  check: "✓",
+  star: "⭐",
+  flame: "🔥"
 };
 
 const LICHESS_PLAYERS = [
@@ -371,6 +439,14 @@ export default function App() {
   
   const theme = THEMES[themeId] || THEMES.dark;
   const selectedBot = personalities[selectedBotId] || personalities.carlsen;
+  
+  // Classic theme detection and icon getter
+  const isClassic = theme.isClassic === true;
+  const getIcon = (key) => isClassic ? (CLASSIC_ICONS[key] || key) : (EMOJI_ICONS[key] || key);
+  const getSourceIcon = (sourceId) => {
+    const source = SOURCES[sourceId];
+    return isClassic ? source?.classicIcon : source?.icon;
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
@@ -813,43 +889,91 @@ export default function App() {
       {!isMobile && (
         <header style={{
           position: "sticky", top: 0, zIndex: 100,
-          background: `linear-gradient(to bottom, ${theme.bg} 0%, ${theme.bg}ee 100%)`,
-          backdropFilter: "blur(12px)", borderBottom: `1px solid ${theme.border}`,
+          background: isClassic 
+            ? theme.bg 
+            : `linear-gradient(to bottom, ${theme.bg} 0%, ${theme.bg}ee 100%)`,
+          backdropFilter: isClassic ? "none" : "blur(12px)", 
+          borderBottom: `1px solid ${theme.border}`,
         }}>
           <div style={{ 
             maxWidth: 1400, margin: "0 auto", 
-            padding: isTablet ? "14px 24px" : "16px 32px", 
+            padding: isClassic 
+              ? (isTablet ? "20px 24px" : "24px 40px")
+              : (isTablet ? "14px 24px" : "16px 32px"), 
             display: "flex", justifyContent: "space-between", alignItems: "center" 
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: isTablet ? 28 : 32 }}>♛</span>
-              <span style={{ fontFamily: fonts.display, fontSize: isTablet ? 18 : 22, fontWeight: 500 }}>ChessGrandmaster</span>
+            {/* Logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: isClassic ? 16 : 12 }}>
+              <span style={{ 
+                fontSize: isClassic ? (isTablet ? 32 : 36) : (isTablet ? 28 : 32),
+                color: isClassic ? theme.accent : "inherit"
+              }}>♛</span>
+              <span style={{ 
+                fontFamily: fonts.display, 
+                fontSize: isClassic ? (isTablet ? 22 : 26) : (isTablet ? 18 : 22), 
+                fontWeight: isClassic ? 400 : 500,
+                letterSpacing: isClassic ? "0.02em" : "0"
+              }}>ChessGrandmaster</span>
             </div>
 
-            <nav style={{ display: "flex", gap: isTablet ? 20 : 32 }}>
-              {[{ id: "library", label: "Library" }, { id: "play", label: "Play" }, { id: "coach", label: "Coach" }, { id: "training", label: "Zone" }].map(tab => (
+            {/* Navigation */}
+            <nav style={{ display: "flex", gap: isClassic ? (isTablet ? 32 : 48) : (isTablet ? 20 : 32) }}>
+              {[
+                { id: "library", label: "Library" }, 
+                { id: "play", label: "Play" }, 
+                { id: "coach", label: "Learn" }, 
+                { id: "training", label: "Focus" }
+              ].map(tab => (
                 <button key={tab.id} onClick={() => {
                   if (tab.id === "training") setShowZoneMode(true);
                   else if (tab.id === "coach") setShowChessCoach(true);
                   else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
                 }}
                   style={{
-                    background: "none", border: "none", fontFamily: fonts.body, fontSize: isTablet ? 11 : 12, fontWeight: 500,
-                    letterSpacing: "0.1em", textTransform: "uppercase", color: theme.ink,
-                    opacity: activeTab === tab.id ? 1 : 0.5, cursor: "pointer", padding: "8px 0", position: "relative", transition,
+                    background: "none", border: "none", 
+                    fontFamily: isClassic ? fonts.body : fonts.body, 
+                    fontSize: isClassic ? (isTablet ? 13 : 14) : (isTablet ? 11 : 12), 
+                    fontWeight: isClassic ? 400 : 500,
+                    letterSpacing: isClassic ? "0.08em" : "0.1em", 
+                    textTransform: "uppercase", 
+                    color: theme.ink,
+                    opacity: activeTab === tab.id ? 1 : (isClassic ? 0.6 : 0.5), 
+                    cursor: "pointer", 
+                    padding: isClassic ? "12px 0" : "8px 0", 
+                    position: "relative", 
+                    transition,
                   }}>
                   {tab.label}
-                  {activeTab === tab.id && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: theme.accent, borderRadius: 1 }} />}
+                  {activeTab === tab.id && (
+                    <div style={{ 
+                      position: "absolute", 
+                      bottom: 0, 
+                      left: 0, 
+                      right: 0, 
+                      height: isClassic ? 1 : 2, 
+                      background: theme.accent, 
+                      borderRadius: 1 
+                    }} />
+                  )}
                 </button>
               ))}
             </nav>
 
+            {/* Settings */}
             <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 10 : 16 }}>
               <div style={{ position: "relative" }}>
                 <button onClick={() => setShowSettings(!showSettings)} style={{
-                  background: theme.accentSoft, border: `1px solid ${theme.border}`, borderRadius: 8,
-                  padding: "8px 14px", cursor: "pointer", color: theme.ink, fontSize: 14, transition,
-                }}>⚙</button>
+                  background: isClassic ? "transparent" : theme.accentSoft, 
+                  border: `1px solid ${theme.border}`, 
+                  borderRadius: isClassic ? 4 : 8,
+                  padding: isClassic ? "10px 16px" : "8px 14px", 
+                  cursor: "pointer", 
+                  color: theme.ink, 
+                  fontSize: isClassic ? 13 : 14, 
+                  transition,
+                  fontWeight: isClassic ? 400 : "inherit",
+                  letterSpacing: isClassic ? "0.05em" : "0"
+                }}>{isClassic ? "Settings" : "⚙"}</button>
                 {showSettings && (
                   <div style={{
                     position: "absolute", top: "100%", right: 0, marginTop: 8, background: theme.card,
@@ -987,18 +1111,21 @@ export default function App() {
       {isMobile && !showZoneMode && !showChessCoach && !showAdminPanel && (
         <nav style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
-          background: "rgba(26, 26, 26, 0.98)",
-          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          background: isClassic ? theme.bg : "rgba(26, 26, 26, 0.98)",
+          backdropFilter: isClassic ? "none" : "blur(20px)", 
+          WebkitBackdropFilter: isClassic ? "none" : "blur(20px)",
           borderTop: `1px solid ${theme.border}`,
-          padding: "8px 8px",
-          paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0))",
+          padding: isClassic ? "12px 8px" : "8px 8px",
+          paddingBottom: isClassic 
+            ? "calc(12px + env(safe-area-inset-bottom, 0))"
+            : "calc(8px + env(safe-area-inset-bottom, 0))",
           display: "flex", justifyContent: "space-around"
         }}>
           {[
-            { id: "library", label: "Library", icon: "📚" },
-            { id: "play", label: "Play", icon: "♟️" },
-            { id: "coach", label: "Coach", icon: "🎓" },
-            { id: "zone", label: "Zone", icon: "🎯" }
+            { id: "library", label: "Library", icon: "📚", classicIcon: "◎" },
+            { id: "play", label: "Play", icon: "♟️", classicIcon: "▶" },
+            { id: "coach", label: isClassic ? "Learn" : "Coach", icon: "🎓", classicIcon: "△" },
+            { id: "zone", label: isClassic ? "Focus" : "Zone", icon: "🎯", classicIcon: "◇" }
           ].map(tab => {
             const isActive = activeTab === tab.id || (tab.id === "zone" && showZoneMode) || (tab.id === "coach" && showChessCoach);
             return (
@@ -1008,13 +1135,24 @@ export default function App() {
                 else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
               }}
                 style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                  padding: "8px 16px", background: "none", border: "none",
-                  color: isActive ? "#4CAF50" : "rgba(255,255,255,0.5)",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: isClassic ? 6 : 4,
+                  padding: isClassic ? "10px 20px" : "8px 16px", 
+                  background: "none", border: "none",
+                  color: isActive 
+                    ? (isClassic ? theme.accent : "#4CAF50") 
+                    : (isClassic ? theme.inkMuted : "rgba(255,255,255,0.5)"),
                   cursor: "pointer"
                 }}>
-                <span style={{ fontSize: 22 }}>{tab.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 500 }}>{tab.label}</span>
+                <span style={{ 
+                  fontSize: isClassic ? 18 : 22,
+                  fontWeight: isClassic ? 300 : "normal"
+                }}>{isClassic ? tab.classicIcon : tab.icon}</span>
+                <span style={{ 
+                  fontSize: isClassic ? 11 : 10, 
+                  fontWeight: isActive ? 600 : (isClassic ? 400 : 500),
+                  letterSpacing: isClassic ? "0.05em" : "0",
+                  textTransform: isClassic ? "uppercase" : "none"
+                }}>{tab.label}</span>
               </button>
             );
           })}
@@ -1025,12 +1163,27 @@ export default function App() {
       {activeTab === "library" && (
         <main style={{ 
           maxWidth: 1400, margin: "0 auto", 
-          padding: isMobile ? 16 : isTablet ? 24 : 32 
+          padding: isMobile ? 16 : isTablet ? 24 : (isClassic ? 48 : 32)
         }}>
+          {/* Classic theme section header */}
+          {isClassic && !isMobile && (
+            <h1 style={{
+              fontFamily: fonts.display,
+              fontSize: 32,
+              fontWeight: 400,
+              marginBottom: 32,
+              color: theme.ink,
+              letterSpacing: "0.01em"
+            }}>Game Library</h1>
+          )}
+          
           {/* Source tabs - scrollable on mobile */}
           <div style={{ 
-            display: "flex", gap: 8, marginBottom: isMobile ? 16 : 24, 
-            borderBottom: `1px solid ${theme.border}`, paddingBottom: isMobile ? 12 : 16,
+            display: "flex", 
+            gap: isClassic ? 16 : 8, 
+            marginBottom: isMobile ? 16 : (isClassic ? 32 : 24), 
+            borderBottom: `1px solid ${theme.border}`, 
+            paddingBottom: isMobile ? 12 : (isClassic ? 20 : 16),
             overflowX: isMobile ? "auto" : "visible",
             WebkitOverflowScrolling: "touch",
             msOverflowStyle: "none",
@@ -1039,14 +1192,27 @@ export default function App() {
             {Object.values(SOURCES).map(s => (
               <button key={s.id} onClick={() => setSource(s.id)}
                 style={{
-                  padding: isMobile ? "10px 16px" : "10px 20px", borderRadius: 8,
-                  border: source === s.id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                  background: source === s.id ? theme.accentSoft : "transparent", color: theme.ink,
-                  cursor: "pointer", fontSize: isMobile ? 12 : 13, fontWeight: 500, 
-                  display: "flex", alignItems: "center", gap: 8, transition,
-                  whiteSpace: "nowrap", flexShrink: 0
+                  padding: isClassic 
+                    ? (isMobile ? "10px 16px" : "12px 24px") 
+                    : (isMobile ? "10px 16px" : "10px 20px"), 
+                  borderRadius: isClassic ? 4 : 8,
+                  border: source === s.id 
+                    ? `1px solid ${theme.accent}` 
+                    : `1px solid ${isClassic ? "transparent" : theme.border}`,
+                  background: source === s.id ? theme.accentSoft : "transparent", 
+                  color: source === s.id ? theme.ink : theme.inkMuted,
+                  cursor: "pointer", 
+                  fontSize: isClassic ? 14 : (isMobile ? 12 : 13), 
+                  fontWeight: isClassic ? 400 : 500, 
+                  display: "flex", alignItems: "center", gap: isClassic ? 10 : 8, 
+                  transition,
+                  whiteSpace: "nowrap", flexShrink: 0,
+                  letterSpacing: isClassic ? "0.03em" : "0"
                 }}>
-                <span>{s.icon}</span>{isMobile ? null : s.name}
+                <span style={{ fontSize: isClassic ? 16 : "inherit" }}>
+                  {isClassic ? s.classicIcon : s.icon}
+                </span>
+                {(isMobile && !isClassic) ? null : s.name}
               </button>
             ))}
           </div>

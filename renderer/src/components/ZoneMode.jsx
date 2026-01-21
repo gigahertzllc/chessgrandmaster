@@ -277,48 +277,248 @@ export default function ZoneMode({
 
   // Browse mode - select content
   if (mode === "browse") {
+    const books = getAllBooks();
+    // Detect classic theme (passed from parent or based on theme characteristics)
+    const isClassicTheme = currentThemeId?.includes('classic');
+    
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 2000,
         background: theme.bg,
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
-        {/* Simple Header */}
+        {/* Header */}
         <header style={{
-          padding: "16px 24px",
+          padding: isClassicTheme ? "24px 40px" : "16px 24px",
           borderBottom: `1px solid ${theme.border}`,
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: theme.ink }}>Zone Mode</h1>
+          <h1 style={{ 
+            margin: 0, 
+            fontSize: isClassicTheme ? 24 : 18, 
+            fontWeight: isClassicTheme ? 400 : 600, 
+            color: theme.ink,
+            fontFamily: isClassicTheme ? '"Playfair Display", Georgia, serif' : 'inherit',
+            letterSpacing: isClassicTheme ? "0.02em" : "0"
+          }}>
+            {isClassicTheme ? "Focus Mode" : "🎯 Zone Mode"}
+          </h1>
           <button onClick={onClose} style={{
-            padding: "8px 16px", background: "transparent", border: `1px solid ${theme.border}`,
-            borderRadius: 8, color: theme.ink, cursor: "pointer", fontSize: 13
-          }}>✕ Close</button>
+            padding: isClassicTheme ? "10px 20px" : "8px 16px", 
+            background: "transparent", 
+            border: `1px solid ${theme.border}`,
+            borderRadius: isClassicTheme ? 4 : 8, 
+            color: theme.ink, 
+            cursor: "pointer", 
+            fontSize: isClassicTheme ? 14 : 13,
+            letterSpacing: isClassicTheme ? "0.05em" : "0"
+          }}>{isClassicTheme ? "Close" : "✕ Close"}</button>
         </header>
 
         {/* Content Browser */}
-        <div style={{ flex: 1, overflow: "auto", padding: 32 }}>
-          <div style={{ maxWidth: 800, margin: "0 auto" }}>
-            <h2 style={{ color: theme.ink, fontSize: 24, marginBottom: 24 }}>Select Content</h2>
+        <div style={{ flex: 1, overflow: "auto", padding: isClassicTheme ? 48 : 32 }}>
+          <div style={{ maxWidth: isClassicTheme ? 720 : 800, margin: "0 auto" }}>
+            {/* Hero section - Classic vs Regular */}
+            {isClassicTheme ? (
+              // Classic Editorial Hero
+              <div style={{
+                textAlign: "center",
+                marginBottom: 64,
+                paddingBottom: 48,
+                borderBottom: `1px solid ${theme.border}`
+              }}>
+                <div style={{ 
+                  fontSize: 48, 
+                  marginBottom: 24, 
+                  color: theme.accent,
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  fontWeight: 300
+                }}>◇</div>
+                <h2 style={{ 
+                  color: theme.ink, 
+                  fontSize: 36, 
+                  marginBottom: 20, 
+                  fontWeight: 400,
+                  fontFamily: '"Playfair Display", Georgia, serif',
+                  letterSpacing: "0.01em"
+                }}>Deep Practice</h2>
+                <p style={{ 
+                  color: theme.inkMuted, 
+                  fontSize: 17, 
+                  maxWidth: 480, 
+                  margin: "0 auto", 
+                  lineHeight: 1.7,
+                  fontWeight: 300
+                }}>
+                  Immersive study sessions with ambient music, annotated games, 
+                  and beautiful boards. Select a lesson to begin.
+                </p>
+              </div>
+            ) : (
+              // Regular Hero with emoji
+              <div style={{
+                textAlign: "center",
+                marginBottom: 48,
+                padding: "40px 20px",
+                background: theme.accentSoft,
+                borderRadius: 16,
+                border: `1px solid ${theme.border}`
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🎯</div>
+                <h2 style={{ color: theme.ink, fontSize: 28, marginBottom: 12, fontWeight: 600 }}>Welcome to Zone Mode</h2>
+                <p style={{ color: theme.inkMuted, fontSize: 15, maxWidth: 500, margin: "0 auto", lineHeight: 1.6 }}>
+                  Immersive chess study with ambient music, beautiful boards, and deep annotations.
+                  Select a lesson below to begin your focused practice session.
+                </p>
+              </div>
+            )}
             
             {/* Lessons */}
             <div style={{ marginBottom: 32 }}>
-              <h3 style={{ color: theme.inkMuted, fontSize: 12, letterSpacing: "0.1em", marginBottom: 16 }}>LESSONS</h3>
-              {getAllBooks().map(book => (
-                <div key={book.id} style={{ marginBottom: 16 }}>
-                  <div style={{ color: theme.ink, fontWeight: 500, marginBottom: 8 }}>{book.title}</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {getLessonsByBook(book.id).map(lesson => (
-                      <button key={lesson.id} onClick={() => selectLesson(lesson.id)} style={{
-                        padding: "10px 16px", background: theme.accentSoft, border: "none",
-                        borderRadius: 8, color: theme.ink, cursor: "pointer", fontSize: 13
-                      }}>
-                        {lesson.title}
-                      </button>
-                    ))}
-                  </div>
+              <h3 style={{ 
+                color: theme.inkMuted, 
+                fontSize: isClassicTheme ? 13 : 12, 
+                letterSpacing: "0.12em", 
+                marginBottom: isClassicTheme ? 24 : 16,
+                fontWeight: isClassicTheme ? 400 : 600
+              }}>LESSONS</h3>
+              {books.length === 0 ? (
+                <div style={{ 
+                  padding: isClassicTheme ? 48 : 32, 
+                  textAlign: "center", 
+                  background: isLightTheme ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.03)", 
+                  borderRadius: isClassicTheme ? 4 : 12,
+                  color: theme.inkMuted 
+                }}>
+                  No lessons available yet.
                 </div>
-              ))}
+              ) : (
+                books.map(book => {
+                  const lessons = getLessonsByBook(book.id);
+                  return (
+                    <div key={book.id} style={{ 
+                      marginBottom: isClassicTheme ? 32 : 24,
+                      background: isLightTheme ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.03)",
+                      borderRadius: isClassicTheme ? 4 : 12,
+                      padding: isClassicTheme ? 28 : 20,
+                      border: `1px solid ${theme.border}`
+                    }}>
+                      <div style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: isClassicTheme ? 16 : 12, 
+                        marginBottom: isClassicTheme ? 20 : 16 
+                      }}>
+                        {isClassicTheme ? (
+                          // Classic style - typography-based icon
+                          <div style={{
+                            width: 48, height: 48, 
+                            borderRadius: 4,
+                            background: theme.accent,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 22,
+                            color: isLightTheme ? "#fff" : theme.bg,
+                            fontFamily: '"Playfair Display", Georgia, serif',
+                            fontWeight: 400
+                          }}>▤</div>
+                        ) : (
+                          <div style={{
+                            width: 40, height: 40, borderRadius: 8,
+                            background: book.coverColor || theme.accent,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 20
+                          }}>📖</div>
+                        )}
+                        <div>
+                          <div style={{ 
+                            color: theme.ink, 
+                            fontWeight: isClassicTheme ? 500 : 600, 
+                            fontSize: isClassicTheme ? 18 : 16,
+                            fontFamily: isClassicTheme ? '"Playfair Display", Georgia, serif' : 'inherit'
+                          }}>{book.title}</div>
+                          <div style={{ 
+                            color: theme.inkMuted, 
+                            fontSize: isClassicTheme ? 13 : 12,
+                            fontStyle: isClassicTheme ? "italic" : "normal"
+                          }}>by {book.author}</div>
+                        </div>
+                      </div>
+                      <p style={{ 
+                        color: theme.inkMuted, 
+                        fontSize: isClassicTheme ? 15 : 13, 
+                        marginBottom: isClassicTheme ? 24 : 16, 
+                        lineHeight: isClassicTheme ? 1.7 : 1.5 
+                      }}>
+                        {book.description}
+                      </p>
+                      {lessons.length === 0 ? (
+                        <div style={{ color: theme.inkMuted, fontSize: 13, fontStyle: "italic" }}>
+                          No lessons available for this book yet.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: isClassicTheme ? 12 : 8 }}>
+                          {lessons.map(lesson => (
+                            <button key={lesson.id} onClick={() => selectLesson(lesson.id)} style={{
+                              padding: isClassicTheme ? "14px 24px" : "12px 18px", 
+                              background: theme.accent, 
+                              border: "none",
+                              borderRadius: isClassicTheme ? 4 : 8, 
+                              color: selectedText, 
+                              cursor: "pointer", 
+                              fontSize: isClassicTheme ? 14 : 13,
+                              fontWeight: isClassicTheme ? 400 : 500,
+                              letterSpacing: isClassicTheme ? "0.03em" : "0",
+                              transition: "all 0.2s ease",
+                              boxShadow: isClassicTheme ? "none" : "0 2px 8px rgba(0,0,0,0.2)"
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isClassicTheme) {
+                                e.target.style.transform = "translateY(-2px)";
+                                e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.3)";
+                              } else {
+                                e.target.style.opacity = "0.85";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isClassicTheme) {
+                                e.target.style.transform = "translateY(0)";
+                                e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
+                              } else {
+                                e.target.style.opacity = "1";
+                              }
+                            }}>
+                              {lesson.title}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Info box */}
+            <div style={{
+              padding: 20,
+              background: "rgba(255,255,255,0.03)",
+              borderRadius: 12,
+              border: `1px solid ${theme.border}`,
+              display: "flex",
+              gap: 16,
+              alignItems: "flex-start"
+            }}>
+              <div style={{ fontSize: 24 }}>💡</div>
+              <div>
+                <div style={{ color: theme.ink, fontWeight: 500, marginBottom: 8 }}>Tip: Zone Mode Features</div>
+                <ul style={{ color: theme.inkMuted, fontSize: 13, margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+                  <li>Lo-fi background music for focus</li>
+                  <li>2D or 3D board views</li>
+                  <li>Move-by-move annotations</li>
+                  <li>Keyboard navigation (← → arrows)</li>
+                  <li>Auto-play mode</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>

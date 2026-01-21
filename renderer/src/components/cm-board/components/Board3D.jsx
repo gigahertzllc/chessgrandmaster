@@ -66,23 +66,41 @@ export default function Board3D({
     // Camera
     const camera = new THREE.PerspectiveCamera(45, currentSize.width / currentSize.height, 0.1, 200);
     const setCamera = () => {
-      const sign = orientation === "w" ? 1 : -1;
+      // Board coordinate system:
+      // - X axis: a-h files (left to right: -3.5 to +3.5)
+      // - Z axis: 1-8 ranks (white side at +Z, black side at -Z)
+      // - Y axis: up
+      
+      // For white player: camera at +Z looking toward -Z (white pieces near, black far)
+      // For black player: camera at -Z looking toward +Z (black pieces near, white far)
       
       if (cameraPreset === "top") {
-        // Bird's eye view - position based on orientation
-        // Small z offset to prevent gimbal lock, oriented so white/black is at bottom
-        camera.position.set(0, 18, 0.5 * sign);
+        // Bird's eye with slight tilt toward player
+        const y = 12;
+        const z = orientation === "w" ? 4 : -4;
+        camera.position.set(0, y, z);
         camera.lookAt(0, 0, 0);
-        // Ensure "forward" from player's perspective
-        camera.up.set(0, 0, -sign);
+        camera.up.set(0, 1, 0);
       } else if (cameraPreset === "angled") {
-        // Classic 3/4 diagonal view from player's corner
-        camera.position.set(6 * sign, 12, 10 * sign);
+        // Classic 3/4 diagonal view
+        if (orientation === "w") {
+          camera.position.set(8, 10, 12);
+        } else {
+          camera.position.set(-8, 10, -12);
+        }
         camera.lookAt(0, 0, 0);
         camera.up.set(0, 1, 0);
       } else {
-        // "straight" - Straight on from white/black side
-        camera.position.set(0, 8, 14 * sign);
+        // "straight" - Classic Chessmaster view
+        // Camera behind player's pieces, elevated, looking across board
+        // Tilt pivots at board center (0,0,0) 
+        const dist = 14;
+        const height = 9;
+        if (orientation === "w") {
+          camera.position.set(0, height, dist);
+        } else {
+          camera.position.set(0, height, -dist);
+        }
         camera.lookAt(0, 0, 0);
         camera.up.set(0, 1, 0);
       }
@@ -131,6 +149,8 @@ export default function Board3D({
     // Board group
     const root = new THREE.Group();
     scene.add(root);
+    
+    // Orientation handled via camera position, not board rotation
 
     // Board base/frame
     const frameMat = new THREE.MeshStandardMaterial({
@@ -144,18 +164,19 @@ export default function Board3D({
     frame.castShadow = false;
     root.add(frame);
 
-    // Squares
+    // Squares - white pieces start at POSITIVE z (front of board for white player)
     const lightMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.light), roughness: 0.75, metalness: 0.05 });
     const darkMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.dark), roughness: 0.75, metalness: 0.05 });
 
     const squareGeo = new THREE.BoxGeometry(1, 0.12, 1);
     const squareMeshes = new Map(); // sq -> mesh (for picking / highlighting)
-    const squares = allSquares("w"); // world mapping is always a1 at (-3.5,-3.5)
+    const squares = allSquares("w"); // world mapping is always a1 at (-3.5,+3.5)
     for (const sq of squares) {
       const { file, rank } = squareToFR(sq);
       const isDark = isDarkSquare(sq);
       const m = new THREE.Mesh(squareGeo, isDark ? darkMat : lightMat);
-      m.position.set(file - 3.5, -0.05, rank - 3.5);
+      // FIXED: Negate z so rank 1 (white) is at +z (near viewer) and rank 8 is at -z (far)
+      m.position.set(file - 3.5, -0.05, -(rank - 3.5));
       m.receiveShadow = true;
       m.castShadow = false;
       m.userData = { square: sq };
@@ -178,7 +199,8 @@ export default function Board3D({
       const dot = new THREE.Mesh(legalDotGeo, legalMat.clone());
       dot.rotation.x = -Math.PI / 2;
       const { file, rank } = squareToFR(sq);
-      dot.position.set(file - 3.5, 0.025, rank - 3.5);
+      // FIXED: Match square coordinate system
+      dot.position.set(file - 3.5, 0.025, -(rank - 3.5));
       dot.visible = false;
       root.add(dot);
       legalDots.set(sq, dot);
@@ -264,7 +286,8 @@ export default function Board3D({
         const mat = p.color === "w" ? matWhite : matBlack;
         const mesh = new THREE.Mesh(geo, mat);
         const { file, rank } = squareToFR(sq);
-        mesh.position.set(file - 3.5, 0.06, rank - 3.5);
+        // FIXED: Match square coordinate system
+        mesh.position.set(file - 3.5, 0.06, -(rank - 3.5));
         mesh.castShadow = true;
         mesh.receiveShadow = false;
         mesh.userData = { square: sq, piece: p };
@@ -290,7 +313,8 @@ export default function Board3D({
 
     const worldPosForSquare = (sq) => {
       const { file, rank } = squareToFR(sq);
-      return new THREE.Vector3(file - 3.5, 0.06, rank - 3.5);
+      // FIXED: Match square coordinate system
+      return new THREE.Vector3(file - 3.5, 0.06, -(rank - 3.5));
     };
 
     const applyMoveAnimations = () => {
