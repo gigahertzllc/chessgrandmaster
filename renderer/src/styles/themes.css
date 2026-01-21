@@ -433,7 +433,7 @@ input, select, textarea {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MODERN: Player Grid
+   MODERN: Player Grid - Cards with images
    ───────────────────────────────────────────────────────────────────────────── */
 
 .theme-modern .player-grid {
@@ -443,23 +443,45 @@ input, select, textarea {
 }
 
 .theme-modern .player-card {
+  position: relative;
+  min-height: 200px;
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
+  align-items: flex-end;
   padding: var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: var(--transition);
+  overflow: hidden;
+  background-size: cover;
+  background-position: center top;
+}
+
+.theme-modern .player-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 20%, rgba(0,0,0,0.8) 100%);
+  z-index: 1;
 }
 
 .theme-modern .player-card:hover {
   border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .theme-modern .player-card.active {
   border-color: var(--accent);
+}
+
+.theme-modern .player-card-overlay {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
 }
 
 .theme-modern .player-icon {
@@ -469,8 +491,9 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-alt);
+  background: rgba(255,255,255,0.15);
   border-radius: var(--radius-md);
+  backdrop-filter: blur(10px);
 }
 
 .theme-modern .player-info {
@@ -479,20 +502,24 @@ input, select, textarea {
 
 .theme-modern .player-name {
   font-weight: 600;
-  color: var(--ink);
+  color: #fff;
   margin-bottom: var(--space-xs);
+  font-size: var(--text-body);
 }
 
 .theme-modern .player-era {
   font-size: var(--text-small);
-  color: var(--ink-muted);
+  color: rgba(255,255,255,0.7);
+  display: block;
 }
 
 .theme-modern .player-games {
   font-size: var(--text-label);
-  color: var(--ink-faint);
+  color: rgba(255,255,255,0.5);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-top: var(--space-xs);
+  display: block;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1223,59 +1250,100 @@ input, select, textarea {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CLASSIC: Player Grid - Portrait style with numerals
+   CLASSIC: Player Grid - Portrait style with numerals and images
    ───────────────────────────────────────────────────────────────────────────── */
 
 .theme-classic .player-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-xl);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-lg);
 }
 
 .theme-classic .player-card {
+  position: relative;
+  aspect-ratio: 3/4;
   cursor: pointer;
   transition: var(--transition);
-  padding: var(--space-lg) 0;
-  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.theme-classic .player-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 30%, var(--bg) 100%);
+  z-index: 1;
+}
+
+/* Grayscale filter on images */
+.theme-classic .player-card {
+  filter: grayscale(100%);
+}
+
+.theme-classic .player-card:hover {
+  filter: grayscale(0%);
+  border-color: var(--accent);
+}
+
+.theme-classic .player-card.active {
+  filter: grayscale(0%);
+  border-color: var(--accent);
+}
+
+.theme-classic .player-card-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-lg);
+}
+
+.theme-classic .player-card .player-icon {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 400;
+  color: var(--ink);
+  opacity: 0.3;
+  position: absolute;
+  top: var(--space-lg);
+  left: var(--space-lg);
+  z-index: 3;
+}
+
+.theme-classic .player-card .player-info {
+  position: relative;
+  z-index: 3;
+}
+
+.theme-classic .player-card .player-name {
+  font-family: var(--font-display);
+  font-size: var(--text-subtitle);
+  font-weight: 400;
+  margin-bottom: var(--space-xs);
+  color: var(--ink);
 }
 
 .theme-classic .player-card:hover .player-name {
   color: var(--accent);
 }
 
-.theme-classic .player-icon {
-  font-family: var(--font-display);
-  font-size: var(--text-title);
-  font-weight: 400;
-  color: var(--ink-faint);
-  line-height: 1;
-  margin-bottom: var(--space-sm);
-}
-
-.theme-classic .player-info {
-  /* No special styling needed */
-}
-
-.theme-classic .player-name {
-  font-family: var(--font-display);
-  font-size: var(--text-body);
-  font-weight: 400;
-  margin-bottom: var(--space-xs);
-  transition: var(--transition);
-}
-
-.theme-classic .player-era {
+.theme-classic .player-card .player-era {
   font-size: var(--text-caption);
   color: var(--ink-muted);
   letter-spacing: 0.05em;
+  display: block;
 }
 
-.theme-classic .player-games {
+.theme-classic .player-card .player-games {
   font-size: var(--text-label);
   color: var(--ink-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-top: var(--space-sm);
+  display: block;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
