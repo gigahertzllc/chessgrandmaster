@@ -1,29 +1,13 @@
 /**
  * ChessGrandmaster 2026
- * Version: 3.1.1
- * Last Updated: January 21, 2026
+ * Version: 3.2.0
+ * Last Updated: January 23, 2026
  * 
- * v3.1.1 - Classic Theme Vertical Player Cards
- *   - Classic theme: Vertical cards with full background images (aspect 3:4)
- *   - Classic theme: Grayscale images, color on hover
- *   - Classic theme: Large initial letter watermark behind name
- *   - Classic theme: Name is clickable → opens Biography
- *   - Classic theme: Click card → loads games
- *   - Modern theme: Keeps horizontal card layout with bio excerpt
- *
- * v3.1.0 - Modular CSS Architecture
- *   - Split themes.css into modular files:
- *     - base.css: Reset, variables, utilities, animations
- *     - components.css: Theme-agnostic component structure  
- *     - modern.css: Modern theme colors + overrides
- *     - classic.css: Classic theme colors + overrides
- *   - Added 50+ semantic classNames to JSX for CSS targeting
- *   - Theme class wrapper: .theme-modern/.theme-classic + .dark/.light
- *
- * v3.0.2 - CSS Theme Refactor (Additive)
- *   - Restored v2.7.0 full functionality
- *   - Added className attributes for CSS theming
- *   - themes.css works alongside inline styles
+ * v3.2.0 - Restored v2.7.0 + Modular CSS
+ *   - RESTORED: All v2.7.0 functionality (Masters, images, games, etc.)
+ *   - Added modular CSS imports (base, components, modern, classic)
+ *   - Theme class wrapper for CSS targeting
+ *   - All inline styles preserved for reliability
  *
  * v2.7.0 - Classic Theme & 3D Board Fixes
  *   - NEW: Classic Dark theme (editorial, no emojis)
@@ -257,7 +241,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "3.1.1";
+const APP_VERSION = "3.2.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -918,7 +902,7 @@ export default function App() {
 
       {/* Desktop Header */}
       {!isMobile && (
-        <header className="header" style={{
+        <header style={{
           position: "sticky", top: 0, zIndex: 100,
           background: isClassic 
             ? theme.bg 
@@ -926,7 +910,7 @@ export default function App() {
           backdropFilter: isClassic ? "none" : "blur(12px)", 
           borderBottom: `1px solid ${theme.border}`,
         }}>
-          <div className="header-inner" style={{ 
+          <div style={{ 
             maxWidth: 1400, margin: "0 auto", 
             padding: isClassic 
               ? (isTablet ? "20px 24px" : "24px 40px")
@@ -934,12 +918,12 @@ export default function App() {
             display: "flex", justifyContent: "space-between", alignItems: "center" 
           }}>
             {/* Logo */}
-            <div className="logo" style={{ display: "flex", alignItems: "center", gap: isClassic ? 16 : 12 }}>
-              <span className="logo-icon" style={{ 
+            <div style={{ display: "flex", alignItems: "center", gap: isClassic ? 16 : 12 }}>
+              <span style={{ 
                 fontSize: isClassic ? (isTablet ? 32 : 36) : (isTablet ? 28 : 32),
                 color: isClassic ? theme.accent : "inherit"
               }}>♛</span>
-              <span className="logo-text" style={{ 
+              <span style={{ 
                 fontFamily: fonts.display, 
                 fontSize: isClassic ? (isTablet ? 22 : 26) : (isTablet ? 18 : 22), 
                 fontWeight: isClassic ? 400 : 500,
@@ -948,14 +932,14 @@ export default function App() {
             </div>
 
             {/* Navigation */}
-            <nav className="nav" style={{ display: "flex", gap: isClassic ? (isTablet ? 32 : 48) : (isTablet ? 20 : 32) }}>
+            <nav style={{ display: "flex", gap: isClassic ? (isTablet ? 32 : 48) : (isTablet ? 20 : 32) }}>
               {[
                 { id: "library", label: "Library" }, 
                 { id: "play", label: "Play" }, 
                 { id: "coach", label: "Learn" }, 
                 { id: "training", label: "Focus" }
               ].map(tab => (
-                <button key={tab.id} className={`nav-item ${activeTab === tab.id ? 'active' : ''}`} onClick={() => {
+                <button key={tab.id} onClick={() => {
                   if (tab.id === "training") setShowZoneMode(true);
                   else if (tab.id === "coach") setShowChessCoach(true);
                   else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
@@ -976,7 +960,7 @@ export default function App() {
                   }}>
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className="nav-indicator" style={{ 
+                    <div style={{ 
                       position: "absolute", 
                       bottom: 0, 
                       left: 0, 
@@ -991,7 +975,7 @@ export default function App() {
             </nav>
 
             {/* Settings */}
-            <div className="header-actions" style={{ display: "flex", alignItems: "center", gap: isTablet ? 10 : 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 10 : 16 }}>
               <div style={{ position: "relative" }}>
                 <button onClick={() => setShowSettings(!showSettings)} style={{
                   background: isClassic ? "transparent" : theme.accentSoft, 
@@ -1071,33 +1055,32 @@ export default function App() {
 
       {/* Mobile Settings Panel */}
       {isMobile && showSettings && (
-        <div className="overlay" style={{
+        <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           background: "rgba(0,0,0,0.5)", zIndex: 200
         }} onClick={() => setShowSettings(false)}>
-          <div className="panel settings-panel" style={{
+          <div style={{
             position: "absolute", top: 60, right: 16, background: theme.card,
             border: `1px solid ${theme.border}`, borderRadius: 12, padding: 16,
             boxShadow: theme.shadowStrong, minWidth: 260, maxWidth: "calc(100vw - 32px)"
           }} onClick={e => e.stopPropagation()}>
-            <p className="panel-label" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
-            <div className="theme-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 }}>
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 12 }}>APP THEME</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 }}>
               {Object.values(THEMES).map(t => (
-                <button key={t.id} className={`theme-btn ${themeId === t.id ? 'active' : ''}`} onClick={() => { changeTheme(t.id); }}
+                <button key={t.id} onClick={() => { changeTheme(t.id); }}
                   style={{
                     padding: "12px", borderRadius: 8, border: themeId === t.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                     background: themeId === t.id ? theme.accentSoft : "transparent", color: theme.ink,
                     cursor: "pointer", textAlign: "center", fontSize: 12, fontWeight: 500,
                   }}>
-                  <div className="theme-swatch" style={{ width: 24, height: 24, borderRadius: 12, background: t.bg, border: `2px solid ${t.ink}`, margin: "0 auto 6px" }} />
+                  <div style={{ width: 24, height: 24, borderRadius: 12, background: t.bg, border: `2px solid ${t.ink}`, margin: "0 auto 6px" }} />
                   {t.name}
                 </button>
               ))}
             </div>
             
-            <p className="panel-label" style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 8 }}>BOARD THEME</p>
+            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.12em", color: theme.inkMuted, marginBottom: 8 }}>BOARD THEME</p>
             <select
-              className="form-select"
               value={boardThemeId}
               onChange={(e) => { setBoardThemeId(e.target.value); localStorage.setItem("cm-board-theme", e.target.value); }}
               style={{
@@ -1112,7 +1095,6 @@ export default function App() {
             </select>
             
             <button 
-              className="btn"
               onClick={() => { setShowAdminPanel(true); setShowSettings(false); }}
               style={{
                 width: "100%", padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`,
@@ -1124,7 +1106,7 @@ export default function App() {
             
             {supabase && (
               user ? (
-                <button className="btn" onClick={handleSignOut} style={{
+                <button onClick={handleSignOut} style={{
                   width: "100%", padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`,
                   background: "transparent", color: theme.ink, cursor: "pointer", fontSize: 13
                 }}>Sign Out ({user.email?.split("@")[0]})</button>
@@ -1142,7 +1124,7 @@ export default function App() {
 
       {/* Mobile Bottom Navigation */}
       {isMobile && !showZoneMode && !showChessCoach && !showAdminPanel && (
-        <nav className="mobile-nav" style={{
+        <nav style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
           background: isClassic ? theme.bg : "rgba(26, 26, 26, 0.98)",
           backdropFilter: isClassic ? "none" : "blur(20px)", 
@@ -1162,7 +1144,7 @@ export default function App() {
           ].map(tab => {
             const isActive = activeTab === tab.id || (tab.id === "zone" && showZoneMode) || (tab.id === "coach" && showChessCoach);
             return (
-              <button key={tab.id} className={`mobile-nav-item ${isActive ? 'active' : ''}`} onClick={() => {
+              <button key={tab.id} onClick={() => {
                 if (tab.id === "zone") setShowZoneMode(true);
                 else if (tab.id === "coach") setShowChessCoach(true);
                 else { setActiveTab(tab.id); if (tab.id === "play") setGrandmasterView("select"); }
@@ -1176,11 +1158,11 @@ export default function App() {
                     : (isClassic ? theme.inkMuted : "rgba(255,255,255,0.5)"),
                   cursor: "pointer"
                 }}>
-                <span className="mobile-nav-icon" style={{ 
+                <span style={{ 
                   fontSize: isClassic ? 18 : 22,
                   fontWeight: isClassic ? 300 : "normal"
                 }}>{isClassic ? tab.classicIcon : tab.icon}</span>
-                <span className="mobile-nav-label" style={{ 
+                <span style={{ 
                   fontSize: isClassic ? 11 : 10, 
                   fontWeight: isActive ? 600 : (isClassic ? 400 : 500),
                   letterSpacing: isClassic ? "0.05em" : "0",
@@ -1194,13 +1176,13 @@ export default function App() {
 
       {/* Library */}
       {activeTab === "library" && (
-        <main className="main library-view" style={{ 
+        <main style={{ 
           maxWidth: 1400, margin: "0 auto", 
           padding: isMobile ? 16 : isTablet ? 24 : (isClassic ? 48 : 32)
         }}>
           {/* Classic theme section header */}
           {isClassic && !isMobile && (
-            <h1 className="library-hero-title" style={{
+            <h1 style={{
               fontFamily: fonts.display,
               fontSize: 32,
               fontWeight: 400,
@@ -1211,7 +1193,7 @@ export default function App() {
           )}
           
           {/* Source tabs - scrollable on mobile */}
-          <div className="source-tabs" style={{ 
+          <div style={{ 
             display: "flex", 
             gap: isClassic ? 16 : 8, 
             marginBottom: isMobile ? 16 : (isClassic ? 32 : 24), 
@@ -1223,7 +1205,7 @@ export default function App() {
             scrollbarWidth: "none"
           }}>
             {Object.values(SOURCES).map(s => (
-              <button key={s.id} className={`source-tab ${source === s.id ? 'active' : ''}`} onClick={() => setSource(s.id)}
+              <button key={s.id} onClick={() => setSource(s.id)}
                 style={{
                   padding: isClassic 
                     ? (isMobile ? "10px 16px" : "12px 24px") 
@@ -1251,23 +1233,23 @@ export default function App() {
           </div>
 
           {source !== "imported" && source !== "masters" && (
-            <div className="search-bar" style={{ display: "flex", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24, flexDirection: isMobile ? "column" : "row" }}>
-              <input type="text" className="search-input" placeholder={source === "classics" ? "Search games..." : "Enter username..."}
+            <div style={{ display: "flex", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24, flexDirection: isMobile ? "column" : "row" }}>
+              <input type="text" placeholder={source === "classics" ? "Search games..." : "Enter username..."}
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 style={{ flex: 1, padding: isMobile ? "12px 16px" : "14px 20px", borderRadius: 10, border: `1px solid ${theme.border}`, background: theme.card, color: theme.ink, fontSize: 14, outline: "none" }} />
-              <button className="search-btn btn btn-primary" onClick={handleSearch} style={{ padding: isMobile ? "12px 20px" : "14px 28px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Search</button>
+              <button onClick={handleSearch} style={{ padding: isMobile ? "12px 20px" : "14px 28px", borderRadius: 10, border: "none", background: theme.accent, color: theme.id === "light" ? "#fff" : theme.bg, cursor: "pointer", fontWeight: 600, fontSize: 14 }}>Search</button>
             </div>
           )}
 
           {source === "classics" && (
-            <div className="category-filters" style={{ 
+            <div style={{ 
               display: "flex", gap: 8, flexWrap: "wrap", marginBottom: isMobile ? 16 : 24,
               overflowX: isMobile ? "auto" : "visible",
               WebkitOverflowScrolling: "touch",
               paddingBottom: isMobile ? 8 : 0
             }}>
               {Object.entries(GAME_CATEGORIES).map(([id, cat]) => (
-                <button key={id} className={`category-btn ${selectedCategory === id ? 'active' : ''}`} onClick={() => selectCategory(id)}
+                <button key={id} onClick={() => selectCategory(id)}
                   style={{
                     padding: isMobile ? "6px 12px" : "8px 16px", borderRadius: 20,
                     border: selectedCategory === id ? `1px solid ${theme.accent}` : `1px solid ${theme.border}`,
@@ -1300,7 +1282,7 @@ export default function App() {
               )}
               
               {/* Player Grid - Responsive */}
-              <div className="player-grid" style={{ 
+              <div style={{ 
                 display: "grid", 
                 gridTemplateColumns: isMobile 
                   ? "1fr" 
@@ -1317,139 +1299,79 @@ export default function App() {
                   return (
                     <div 
                       key={id} 
-                      className={`player-card ${selectedMaster === id ? 'active' : ''}`}
                       onClick={() => loadMaster(id)} 
                       style={{
                         backgroundColor: theme.card,
-                        borderRadius: isClassic ? 0 : (isMobile ? 12 : 16),
+                        borderRadius: isMobile ? 12 : 16,
                         overflow: "hidden",
                         border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                         transition: "all 0.2s ease",
                         cursor: "pointer",
                         display: "flex",
-                        flexDirection: "column",
-                        backgroundImage: isClassic && player.imageUrl ? `url(${player.imageUrl})` : "none",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center top"
+                        flexDirection: "column"
                       }}
                       onMouseOver={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60"; }}
                       onMouseOut={(e) => { if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border; }}
                     >
                       {/* Top Section - Image + Basic Info */}
-                      <div className="player-card-header" style={{ display: isClassic ? "block" : "flex", height: isClassic ? "auto" : (isMobile ? 100 : 140) }}>
-                        {/* Player Image - hidden in classic (uses card background instead) */}
-                        {!isClassic && (
-                          <div className="player-image" style={{ 
-                            width: isMobile ? 100 : 140,
-                            minWidth: isMobile ? 100 : 140,
-                            backgroundColor: theme.bgAlt,
-                            backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
-                            backgroundSize: "cover",
-                            backgroundPosition: "center top",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                          }}>
-                            {!player.imageUrl && (
-                              <div className="player-avatar" style={{ 
-                                width: isMobile ? 50 : 70, 
-                                height: isMobile ? 50 : 70, 
-                                borderRadius: "50%", 
-                                background: theme.accentSoft,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: isMobile ? 20 : 28,
-                                color: theme.accent
-                              }}>
-                                {player.name.charAt(0)}
+                      <div style={{ display: "flex", height: isMobile ? 100 : 140 }}>
+                        {/* Player Image */}
+                        <div style={{ 
+                          width: isMobile ? 100 : 140,
+                          minWidth: isMobile ? 100 : 140,
+                          backgroundColor: theme.bgAlt,
+                          backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
+                          backgroundSize: "cover",
+                          backgroundPosition: "center top",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}>
+                          {!player.imageUrl && (
+                            <div style={{ 
+                              width: isMobile ? 50 : 70, 
+                              height: isMobile ? 50 : 70, 
+                              borderRadius: "50%", 
+                              background: theme.accentSoft,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: isMobile ? 20 : 28,
+                              color: theme.accent
+                            }}>
+                              {player.name.charAt(0)}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Quick Info */}
+                        <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
+                            {player.name}
+                          </div>
+                          <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
+                            {player.nationality}
+                          </div>
+                          
+                          {/* Key Stats */}
+                          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                            {player.peakRating && (
+                              <div>
+                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
+                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
+                              </div>
+                            )}
+                            {player.worldChampion && (
+                              <div>
+                                <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
+                                <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
                               </div>
                             )}
                           </div>
-                        )}
-                        
-                        {/* Large initial letter for classic theme */}
-                        {isClassic && (
-                          <div className="player-avatar" style={{
-                            position: "absolute",
-                            bottom: 40,
-                            right: -10,
-                            fontSize: isMobile ? 100 : 140,
-                            fontFamily: fonts.display,
-                            fontWeight: 400,
-                            color: "rgba(255,255,255,0.08)",
-                            lineHeight: 1,
-                            pointerEvents: "none"
-                          }}>
-                            {player.name.charAt(0)}
-                          </div>
-                        )}
-                        
-                        {/* Quick Info - different layout for classic vs modern */}
-                        {!isClassic && (
-                          <div className="player-info" style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                            <div className="player-name" style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
-                              {player.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
-                              {player.nationality}
-                            </div>
-                            
-                            {/* Key Stats */}
-                            <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-                              {player.peakRating && (
-                                <div>
-                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
-                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
-                                </div>
-                              )}
-                              {player.worldChampion && (
-                                <div>
-                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
-                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
                       
-                      {/* Classic theme: info at bottom with gradient overlay */}
-                      {isClassic && (
-                        <div className="player-info" style={{
-                          marginTop: "auto",
-                          padding: isMobile ? 16 : 20,
-                          background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.8) 30%, rgba(0,0,0,0.95))",
-                          position: "relative",
-                          zIndex: 2
-                        }}>
-                          <div 
-                            className="player-name" 
-                            onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
-                            style={{ 
-                              fontFamily: fonts.display, 
-                              fontSize: isMobile ? 16 : 20, 
-                              fontWeight: 400, 
-                              color: "#fff", 
-                              marginBottom: 4,
-                              textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                              cursor: "pointer",
-                              textDecoration: "underline",
-                              textDecorationColor: "rgba(255,255,255,0.3)",
-                              textUnderlineOffset: "3px"
-                            }}>
-                            {player.name}
-                          </div>
-                          <div className="player-era" style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", letterSpacing: "0.05em" }}>
-                            {player.era || player.nationality}
-                          </div>
-                          <div className="player-games" style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                            {gameCount} games
-                          </div>
-                        </div>
-                      )}
-                      {/* Bottom Section - Bio + Actions (modern theme only) */}
-                      {!isClassic && (
+                      {/* Bottom Section - Bio + Actions */}
                       <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
                         {/* Bio Excerpt */}
                         <p style={{ 
@@ -1501,7 +1423,6 @@ export default function App() {
                           </button>
                         </div>
                       </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1665,7 +1586,7 @@ export default function App() {
           {error && <p style={{ color: theme.error }}>{error}</p>}
 
           {displayGames.length > 0 && (
-            <div className="game-viewer-layout" style={{ 
+            <div style={{ 
               display: isMobile ? "flex" : "grid", 
               flexDirection: "column",
               gridTemplateColumns: isTablet ? "1fr 1fr" : "220px 1fr 280px", 
@@ -1675,14 +1596,14 @@ export default function App() {
               {/* Desktop: Show games list first */}
               
               {/* Games List - On mobile shows as horizontal scroll or collapsible */}
-              <div className="game-list panel" style={{ 
+              <div style={{ 
                 background: theme.card, 
                 borderRadius: isMobile ? 12 : 16, 
                 border: `1px solid ${theme.border}`, 
                 overflow: "hidden",
                 order: isMobile ? 2 : 1
               }}>
-                <div className="panel-header" style={{ 
+                <div style={{ 
                   padding: isMobile ? "10px 14px" : "12px 16px", 
                   borderBottom: `1px solid ${theme.border}`, 
                   fontSize: 10, 
@@ -1695,7 +1616,7 @@ export default function App() {
                 }}>
                   <span>GAMES ({displayGames.length})</span>
                 </div>
-                <div className="game-list-scroll" style={{ 
+                <div style={{ 
                   maxHeight: isMobile ? 200 : 600, 
                   overflowY: "auto",
                   overflowX: isMobile ? "auto" : "hidden",
@@ -1705,7 +1626,7 @@ export default function App() {
                   padding: isMobile ? 8 : 0
                 }}>
                   {displayGames.map((game, i) => (
-                    <div key={game.id || i} className={`game-card ${selectedGame?.id === game.id ? 'active' : ''}`} onClick={() => selectGame(game)}
+                    <div key={game.id || i} onClick={() => selectGame(game)}
                       style={{ 
                         padding: isMobile ? "10px 12px" : "12px 16px", 
                         borderBottom: isMobile ? "none" : `1px solid ${theme.border}`,
@@ -1717,16 +1638,16 @@ export default function App() {
                         minWidth: isMobile ? 180 : "auto",
                         flexShrink: 0
                       }}>
-                      <div className="game-title" style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                         <span style={{ fontWeight: 600, fontSize: isMobile ? 11 : 12, lineHeight: 1.3 }}>
                           {game.title || `${game.white} vs ${game.black}`}
                         </span>
                       </div>
-                      <div className="game-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: isMobile ? 10 : 11, color: theme.inkMuted }}>
                           {game.event?.slice(0, isMobile ? 15 : 20)} {game.year || game.date}
                         </span>
-                        <span className="game-result" style={{ 
+                        <span style={{ 
                           fontSize: isMobile ? 10 : 11, 
                           fontWeight: 600, 
                           color: game.result === "1-0" ? theme.success : game.result === "0-1" ? theme.error : theme.inkMuted 
@@ -1734,7 +1655,7 @@ export default function App() {
                       </div>
                       {!game.pgn && <span style={{ fontSize: 10, color: theme.error }}>⚠ No moves</span>}
                       {source === "imported" && !isMobile && (
-                        <button className="btn btn-small" onClick={(e) => { e.stopPropagation(); deleteImportedGame(game.id); }}
+                        <button onClick={(e) => { e.stopPropagation(); deleteImportedGame(game.id); }}
                           style={{ marginTop: 6, padding: "3px 6px", fontSize: 10, borderRadius: 4, border: `1px solid ${theme.border}`, background: "transparent", color: theme.inkMuted, cursor: "pointer" }}>Delete</button>
                       )}
                     </div>
@@ -1743,7 +1664,7 @@ export default function App() {
               </div>
 
               {/* Board */}
-              <div className="board-panel panel" style={{ 
+              <div style={{ 
                 background: theme.card, 
                 borderRadius: isMobile ? 12 : 16, 
                 border: `1px solid ${theme.border}`, 
