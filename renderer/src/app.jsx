@@ -1,16 +1,16 @@
 /**
  * ChessGrandmaster 2026
- * Version: 3.2.0
+ * Version: 3.2.1
  * Last Updated: January 23, 2026
  * 
- * v3.2.0 - Classic Theme Vertical Cards (Restored)
- *   - Restored v3.1.2 classic theme vertical card design
+ * v3.2.1 - Classic Theme as Default + Image Fix
+ *   - FIXED: Classic Dark is now the DEFAULT theme
+ *   - FIXED: Wikipedia images now use <img> tags with referrerPolicy="no-referrer"
  *   - Classic theme: Vertical cards with 3:4 aspect ratio
- *   - Classic theme: Full background images (Wikipedia), grayscale → color on hover  
- *   - Classic theme: Large initial letter watermark (120px)
+ *   - Classic theme: Full background images, grayscale → color on hover  
+ *   - Classic theme: Large initial letter watermark
  *   - Classic theme: Gradient overlay at bottom with name/era/games
- *   - Modern theme: Horizontal cards with bio excerpt + action buttons
- *   - All v2.7.0 functionality should be intact
+ *   - Modern theme still available via theme selector
  *
  * v3.1.0 - Modular CSS Architecture
  *   - Split themes.css into modular files:
@@ -258,7 +258,7 @@ import "./styles/responsive.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "3.2.0";
+const APP_VERSION = "3.2.1";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -402,7 +402,7 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   // Theme state
-  const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
+  const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "classic-dark");
   const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "classic_wood");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   
@@ -1326,11 +1326,7 @@ export default function App() {
                         overflow: "hidden",
                         border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                         cursor: "pointer",
-                        backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center top",
-                        filter: "grayscale(100%)",
-                        transition: "filter 0.3s ease, border-color 0.3s ease"
+                        transition: "border-color 0.3s ease"
                       } : {
                         // Modern theme: horizontal card
                         backgroundColor: theme.card,
@@ -1344,13 +1340,37 @@ export default function App() {
                       }}
                       onMouseOver={(e) => { 
                         if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60";
-                        if (isClassic) e.currentTarget.style.filter = "grayscale(0%)";
+                        const img = e.currentTarget.querySelector('.player-bg-image');
+                        if (img && isClassic) img.style.filter = "grayscale(0%)";
                       }}
                       onMouseOut={(e) => { 
                         if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border;
-                        if (isClassic) e.currentTarget.style.filter = "grayscale(100%)";
+                        const img = e.currentTarget.querySelector('.player-bg-image');
+                        if (img && isClassic) img.style.filter = "grayscale(100%)";
                       }}
                     >
+                      {/* Classic theme: Full background image */}
+                      {isClassic && player.imageUrl && (
+                        <img 
+                          className="player-bg-image"
+                          src={player.imageUrl}
+                          alt={player.name}
+                          referrerPolicy="no-referrer"
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            objectPosition: "center top",
+                            filter: "grayscale(100%)",
+                            transition: "filter 0.3s ease",
+                            zIndex: 0
+                          }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      
                       {/* Top Section - Image + Basic Info */}
                       <div className="player-card-header" style={{ display: isClassic ? "none" : "flex", height: isClassic ? "auto" : (isMobile ? 100 : 140) }}>
                         {/* Player Image - hidden in classic (uses card background instead) */}
@@ -1359,14 +1379,28 @@ export default function App() {
                             width: isMobile ? 100 : 140,
                             minWidth: isMobile ? 100 : 140,
                             backgroundColor: theme.bgAlt,
-                            backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
-                            backgroundSize: "cover",
-                            backgroundPosition: "center top",
+                            position: "relative",
+                            overflow: "hidden",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center"
                           }}>
-                            {!player.imageUrl && (
+                            {player.imageUrl ? (
+                              <img 
+                                src={player.imageUrl}
+                                alt={player.name}
+                                referrerPolicy="no-referrer"
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  objectPosition: "center top"
+                                }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            ) : (
                               <div className="player-avatar" style={{ 
                                 width: isMobile ? 50 : 70, 
                                 height: isMobile ? 50 : 70, 
@@ -1537,11 +1571,7 @@ export default function App() {
                       overflow: "hidden",
                       border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                       cursor: "pointer",
-                      backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
-                      backgroundSize: "cover",
-                      backgroundPosition: "center top",
-                      filter: "grayscale(100%)",
-                      transition: "filter 0.3s ease, border-color 0.3s ease"
+                      transition: "border-color 0.3s ease"
                     } : {
                       // Modern theme: horizontal card
                       backgroundColor: theme.card,
@@ -1555,12 +1585,36 @@ export default function App() {
                       position: "relative"
                     }}
                     onMouseOver={(e) => { 
-                      if (isClassic) e.currentTarget.style.filter = "grayscale(0%)";
+                      const img = e.currentTarget.querySelector('.player-bg-image');
+                      if (img && isClassic) img.style.filter = "grayscale(0%)";
                     }}
                     onMouseOut={(e) => { 
-                      if (isClassic) e.currentTarget.style.filter = "grayscale(100%)";
+                      const img = e.currentTarget.querySelector('.player-bg-image');
+                      if (img && isClassic) img.style.filter = "grayscale(100%)";
                     }}
                   >
+                    {/* Classic theme: Full background image */}
+                    {isClassic && player.image_url && (
+                      <img 
+                        className="player-bg-image"
+                        src={player.image_url}
+                        alt={player.name}
+                        referrerPolicy="no-referrer"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          objectPosition: "center top",
+                          filter: "grayscale(100%)",
+                          transition: "filter 0.3s ease",
+                          zIndex: 0
+                        }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                    
                     {/* Custom Badge */}
                     <div style={{
                       position: "absolute",
@@ -1630,14 +1684,28 @@ export default function App() {
                         width: 140,
                         minWidth: 140,
                         backgroundColor: theme.bgAlt,
-                        backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center top",
+                        position: "relative",
+                        overflow: "hidden",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center"
                       }}>
-                        {!player.image_url && (
+                        {player.image_url ? (
+                          <img 
+                            src={player.image_url}
+                            alt={player.name}
+                            referrerPolicy="no-referrer"
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              objectPosition: "center top"
+                            }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
                           <div style={{ 
                             width: 70, 
                             height: 70, 
