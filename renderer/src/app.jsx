@@ -1,8 +1,19 @@
 /**
  * ChessGrandmaster 2026
- * Version: 3.4.0
+ * Version: 3.5.0
  * Last Updated: January 24, 2026
  * 
+ * v3.5.0 - COMPLETE THEME ARCHITECTURE
+ *   - Gallery theme now replaces ENTIRE app UI (not just masters section)
+ *   - Vertical left navigation, split-screen hero, asymmetric grid
+ *   - Custom cursor follows mouse
+ *   - Each theme is a complete standalone layout
+ *   - Default theme: Gallery (dark)
+ *   - Old classic/modern layout only shows when explicitly selected
+ *   - New /layouts folder for complete theme layouts
+ *   - New /services folder for API services (Wikipedia, Lichess, Chess.com)
+ *   - New /hooks folder for shared functionality
+ *
  * v3.4.0 - New Design Themes + Photo Selection
  *   - NEW: Gallery theme (experimental/museum style, orange accent)
  *   - NEW: Typographic theme (bold typography, red-orange accent)
@@ -248,6 +259,7 @@ import PlayVsBot from "./components/PlayVsBot.jsx";
 import ZoneMode from "./components/ZoneMode.jsx";
 import PlayerProfile from "./components/PlayerProfile.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
+import GalleryLayout from "./layouts/GalleryLayout.jsx";
 import { 
   GalleryMastersLayout, 
   TypographicMastersLayout, 
@@ -1045,6 +1057,213 @@ export default function App() {
 
   // Compute theme class for CSS theming
   const themeClass = `${isClassic ? 'theme-classic' : 'theme-modern'} ${themeId.includes('light') ? 'light' : 'dark'}`;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GALLERY LAYOUT - Completely replaces the UI when gallery theme is active
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (themeLayout === 'gallery') {
+    return (
+      <>
+        <GalleryLayout
+          // Data
+          players={playersWithOverrides}
+          customPlayers={customPlayers}
+          selectedMaster={selectedMaster}
+          masterGames={masterGames}
+          dbGameCounts={dbGameCounts}
+          user={user}
+          
+          // Actions
+          onSelectMaster={(id) => {
+            if (id) {
+              loadMaster(id);
+            } else {
+              setSelectedMaster(null);
+              setMasterGames([]);
+            }
+          }}
+          onSelectGame={selectGame}
+          onSignIn={() => setShowAuthModal(true)}
+          onSignOut={handleSignOut}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenAdmin={() => setShowAdminPanel(true)}
+          onOpenZoneMode={() => setShowZoneMode(true)}
+          
+          // Game viewer
+          selectedGame={selectedGame}
+          fen={libraryFen}
+          moves={libraryMoves}
+          moveIndex={libraryMoveIndex}
+          onGoToMove={(idx) => { 
+            setLibraryMoveIndex(idx);
+            // Rebuild position
+            const tempChess = new Chess();
+            for (let i = 0; i < idx && i < libraryMoves.length; i++) {
+              tempChess.move(libraryMoves[i].san);
+            }
+            setLibraryFen(tempChess.fen());
+          }}
+          onNextMove={() => {
+            if (libraryMoveIndex < libraryMoves.length) {
+              const tempChess = new Chess();
+              for (let i = 0; i <= libraryMoveIndex && i < libraryMoves.length; i++) {
+                tempChess.move(libraryMoves[i].san);
+              }
+              setLibraryFen(tempChess.fen());
+              setLibraryMoveIndex(libraryMoveIndex + 1);
+            }
+          }}
+          onPrevMove={() => {
+            if (libraryMoveIndex > 0) {
+              const tempChess = new Chess();
+              for (let i = 0; i < libraryMoveIndex - 1 && i < libraryMoves.length; i++) {
+                tempChess.move(libraryMoves[i].san);
+              }
+              setLibraryFen(tempChess.fen());
+              setLibraryMoveIndex(libraryMoveIndex - 1);
+            }
+          }}
+          onFirstMove={() => { setLibraryFen(new Chess().fen()); setLibraryMoveIndex(0); }}
+          onLastMove={() => {
+            const tempChess = new Chess();
+            libraryMoves.forEach(m => tempChess.move(m.san));
+            setLibraryFen(tempChess.fen());
+            setLibraryMoveIndex(libraryMoves.length);
+          }}
+          onFlipBoard={() => setLibraryOrientation(o => o === 'w' ? 'b' : 'w')}
+          orientation={libraryOrientation}
+          
+          // Board component
+          BoardComponent={Board}
+        />
+
+        {/* Modals - always available */}
+        {showZoneMode && (
+          <ZoneMode 
+            initialGame={selectedGame} 
+            onClose={() => setShowZoneMode(false)} 
+            theme={theme} 
+            themeId={themeId} 
+            onThemeChange={changeTheme} 
+            boardThemeId={boardThemeId} 
+            onBoardThemeChange={changeBoardTheme} 
+          />
+        )}
+        
+        {showChessCoach && (
+          <ChessCoach theme={theme} onClose={() => setShowChessCoach(false)} />
+        )}
+
+        {showAdminPanel && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.8)",
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }} onClick={() => setShowAdminPanel(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ width: "95%", maxWidth: 1200, height: "90vh", overflow: "auto", borderRadius: 12 }}>
+              <AdminPanel 
+                theme={theme}
+                onClose={() => setShowAdminPanel(false)} 
+                onPlayersUpdated={() => {
+                  loadCustomPlayers();
+                  loadPlayerOverrides();
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {showAuthModal && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.8)",
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }} onClick={() => setShowAuthModal(false)}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: theme.card, padding: 32, borderRadius: 12, maxWidth: 400, width: "90%"
+            }}>
+              <h2 style={{ marginBottom: 24, fontFamily: fonts.display }}>Sign In</h2>
+              <button onClick={handleGoogleSignIn} style={{
+                width: "100%", padding: 16, background: theme.accent, border: "none",
+                borderRadius: 8, color: "#fff", fontSize: 16, cursor: "pointer"
+              }}>
+                Continue with Google
+              </button>
+              <button onClick={() => setShowAuthModal(false)} style={{
+                width: "100%", padding: 12, background: "transparent", border: `1px solid ${theme.border}`,
+                borderRadius: 8, marginTop: 12, cursor: "pointer", color: theme.ink
+              }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 150, background: "rgba(0,0,0,0.6)"
+          }} onClick={() => setShowSettings(false)}>
+            <div onClick={e => e.stopPropagation()} style={{
+              position: "absolute", right: 0, top: 0, bottom: 0, width: 320,
+              background: theme.card, padding: 24, overflowY: "auto"
+            }}>
+              <h3 style={{ marginBottom: 24, fontFamily: fonts.display }}>Settings</h3>
+              
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 12, letterSpacing: "0.1em" }}>THEME</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {Object.values(THEMES).map(t => (
+                    <button 
+                      key={t.id} 
+                      onClick={() => { changeTheme(t.id); setShowSettings(false); }}
+                      style={{
+                        padding: "8px 16px",
+                        background: themeId === t.id ? theme.accent : theme.bgAlt,
+                        border: "none",
+                        borderRadius: 6,
+                        color: themeId === t.id ? "#fff" : theme.ink,
+                        fontSize: 12,
+                        cursor: "pointer"
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {user && (
+                <button onClick={() => { setShowAdminPanel(true); setShowSettings(false); }} style={{
+                  width: "100%", padding: 12, background: theme.bgAlt, border: "none",
+                  borderRadius: 8, marginBottom: 12, cursor: "pointer", color: theme.ink
+                }}>
+                  Open Admin Panel
+                </button>
+              )}
+
+              <button onClick={user ? handleSignOut : () => setShowAuthModal(true)} style={{
+                width: "100%", padding: 12, background: "transparent",
+                border: `1px solid ${theme.border}`, borderRadius: 8, cursor: "pointer", color: theme.ink
+              }}>
+                {user ? "Sign Out" : "Sign In"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Version */}
+        <div style={{
+          position: "fixed", bottom: 8, right: 12, fontSize: 10,
+          color: "rgba(255,255,255,0.3)", pointerEvents: "none"
+        }}>
+          v{APP_VERSION}
+        </div>
+      </>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLASSIC/MODERN LAYOUT - Original horizontal header layout
+  // ═══════════════════════════════════════════════════════════════════════════
 
   return (
     <div 
