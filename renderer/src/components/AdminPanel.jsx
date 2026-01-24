@@ -8,6 +8,8 @@ import { PLAYERS } from '../data/playerInfo.js';
 import { parsePGN, countGames } from '../data/pgnParser.js';
 import { supabase, db } from '../supabase.js';
 import { readID3Tags, formatDuration } from '../audio/id3Reader.js';
+import { fetchAllPhotoOptions } from '../services/wikipediaService.js';
+import SystemHealthPanel from './SystemHealthPanel.jsx';
 
 export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   // View mode: 'players' or 'audio'
@@ -230,134 +232,31 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   };
 
   // Fetch multiple photo options from Wikipedia for a player
-  // Actually validates that images load before showing them
+  // Uses the Wikipedia service which validates that images actually load
   const fetchPhotoOptions = async (playerName) => {
     setPhotoLoading(true);
     setPhotoOptions([]);
     setSelectedPhotoUrl(null);
     
     console.log('=== FETCHING PHOTO OPTIONS FOR:', playerName, '===');
-    setImportStatus({ type: 'loading', message: 'Searching Wikipedia for photos...' });
-    
-    // Helper function to actually test if an image loads
-    const testImageLoads = (url) => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          console.log('✓ Image verified:', url.substring(0, 50) + '...');
-          resolve(true);
-        };
-        img.onerror = () => {
-          console.log('✗ Image failed to load:', url.substring(0, 50) + '...');
-          resolve(false);
-        };
-        // Timeout after 5 seconds
-        setTimeout(() => {
-          console.log('✗ Image timeout:', url.substring(0, 50) + '...');
-          resolve(false);
-        }, 5000);
-        img.src = url;
-      });
-    };
     
     try {
-      const candidateUrls = [];
+      const result = await fetchAllPhotoOptions(playerName, (progress) => {
+        setImportStatus({ type: 'loading', message: progress.message });
+      });
       
-      // Method 1: Get main page image via Action API
-      const mainPageUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(playerName)}&prop=pageimages&format=json&origin=*&pithumbsize=400`;
-      console.log('Fetching main page image:', mainPageUrl);
-      
-      const mainRes = await fetch(mainPageUrl);
-      const mainData = await mainRes.json();
-      const mainPages = mainData.query?.pages || {};
-      const mainPage = Object.values(mainPages)[0];
-      
-      if (mainPage?.thumbnail?.source) {
-        candidateUrls.push({
-          url: mainPage.thumbnail.source,
-          source: 'Wikipedia Main',
-          label: 'Main Article Image'
+      if (result.success) {
+        setPhotoOptions(result.images);
+        setImportStatus({ 
+          type: 'success', 
+          message: `${result.count} photos verified and ready` 
         });
-      }
-      
-      // Method 2: Get REST API summary image (may be different)
-      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(playerName)}`;
-      console.log('Fetching summary image:', summaryUrl);
-      
-      const summaryRes = await fetch(summaryUrl);
-      const summaryData = await summaryRes.json();
-      
-      if (summaryData.thumbnail?.source && !candidateUrls.some(o => o.url === summaryData.thumbnail.source)) {
-        candidateUrls.push({
-          url: summaryData.thumbnail.source,
-          source: 'Wikipedia Summary',
-          label: 'Summary Thumbnail'
-        });
-      }
-      
-      if (summaryData.originalimage?.source && !candidateUrls.some(o => o.url === summaryData.originalimage.source)) {
-        candidateUrls.push({
-          url: summaryData.originalimage.source,
-          source: 'Wikipedia Original',
-          label: 'Original (High Res)'
-        });
-      }
-      
-      // Method 3: Search Commons for more images
-      const commonsSearchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(playerName + ' chess')}&srnamespace=6&format=json&origin=*&srlimit=10`;
-      console.log('Searching Commons:', commonsSearchUrl);
-      
-      const commonsRes = await fetch(commonsSearchUrl);
-      const commonsData = await commonsRes.json();
-      
-      if (commonsData.query?.search) {
-        for (const result of commonsData.query.search.slice(0, 6)) {
-          const fileName = result.title.replace('File:', '');
-          const fileInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url|thumburl&iiurlwidth=400&format=json&origin=*`;
-          
-          try {
-            const fileRes = await fetch(fileInfoUrl);
-            const fileData = await fileRes.json();
-            const pages = fileData.query?.pages || {};
-            const page = Object.values(pages)[0];
-            const imageInfo = page?.imageinfo?.[0];
-            
-            if (imageInfo?.thumburl && !candidateUrls.some(o => o.url === imageInfo.thumburl)) {
-              candidateUrls.push({
-                url: imageInfo.thumburl,
-                source: 'Wikimedia Commons',
-                label: fileName.substring(0, 40) + (fileName.length > 40 ? '...' : '')
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to get file info for:', result.title);
-          }
-        }
-      }
-      
-      console.log(`Found ${candidateUrls.length} candidate URLs, now verifying they actually load...`);
-      setImportStatus({ type: 'loading', message: `Verifying ${candidateUrls.length} images actually load...` });
-      
-      // NOW ACTUALLY TEST EACH IMAGE LOADS
-      const verifiedOptions = [];
-      for (const candidate of candidateUrls) {
-        const loads = await testImageLoads(candidate.url);
-        if (loads) {
-          verifiedOptions.push(candidate);
-        }
-      }
-      
-      console.log(`Verified: ${verifiedOptions.length}/${candidateUrls.length} images actually load`);
-      setPhotoOptions(verifiedOptions);
-      
-      if (verifiedOptions.length === 0) {
-        setImportStatus({ type: 'error', message: `Found ${candidateUrls.length} URLs but none loaded. Try again or upload manually.` });
-      } else if (verifiedOptions.length < candidateUrls.length) {
-        setImportStatus({ type: 'success', message: `${verifiedOptions.length} photos verified (${candidateUrls.length - verifiedOptions.length} failed to load)` });
       } else {
-        setImportStatus({ type: 'success', message: `${verifiedOptions.length} photos verified and ready` });
+        setImportStatus({ 
+          type: 'error', 
+          message: 'No photos found. Try a different search term.' 
+        });
       }
-      
     } catch (error) {
       console.error('Error fetching photo options:', error);
       setImportStatus({ type: 'error', message: 'Failed to fetch photos: ' + error.message });
@@ -2711,13 +2610,26 @@ function SystemDiagnostics({ colors }) {
   const [status, setStatus] = useState({
     ai: { status: 'checking', message: 'Checking...' },
     supabase: { status: 'checking', message: 'Checking...' },
+    wikipedia: { status: 'checking', message: 'Checking...' },
+    lichess: { status: 'checking', message: 'Checking...' },
+    chesscom: { status: 'checking', message: 'Checking...' },
     stockfish: { status: 'checking', message: 'Checking...' },
     audio: { status: 'checking', message: 'Checking...' },
-    voice: { status: 'checking', message: 'Checking...' },
     storage: { status: 'checking', message: 'Checking...' }
   });
   const [isChecking, setIsChecking] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+
+  // Helper to test image actually loads
+  const testImageLoads = (url) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const timer = setTimeout(() => resolve(false), 5000);
+      img.onload = () => { clearTimeout(timer); resolve(true); };
+      img.onerror = () => { clearTimeout(timer); resolve(false); };
+      img.src = url;
+    });
+  };
 
   // Run all checks
   const runDiagnostics = async () => {
@@ -2727,9 +2639,11 @@ function SystemDiagnostics({ colors }) {
     setStatus({
       ai: { status: 'checking', message: 'Checking...' },
       supabase: { status: 'checking', message: 'Checking...' },
+      wikipedia: { status: 'checking', message: 'Checking...' },
+      lichess: { status: 'checking', message: 'Checking...' },
+      chesscom: { status: 'checking', message: 'Checking...' },
       stockfish: { status: 'checking', message: 'Checking...' },
       audio: { status: 'checking', message: 'Checking...' },
-      voice: { status: 'checking', message: 'Checking...' },
       storage: { status: 'checking', message: 'Checking...' }
     });
 
@@ -2770,7 +2684,7 @@ function SystemDiagnostics({ colors }) {
     // Check Supabase
     try {
       if (typeof supabase !== 'undefined' && supabase) {
-        const { data, error } = await supabase.from('chess_games').select('id').limit(1);
+        const { data, error } = await supabase.from('master_games').select('id').limit(1);
         if (error) {
           if (error.message.includes('does not exist')) {
             setStatus(s => ({ ...s, supabase: { status: 'warning', message: 'Tables not created' } }));
@@ -2785,6 +2699,60 @@ function SystemDiagnostics({ colors }) {
       }
     } catch (e) {
       setStatus(s => ({ ...s, supabase: { status: 'error', message: 'Error' } }));
+    }
+
+    // Check Wikipedia Images (actually test image loads!)
+    try {
+      const wikiRes = await fetch(
+        'https://en.wikipedia.org/w/api.php?action=query&titles=Magnus_Carlsen&prop=pageimages&format=json&origin=*&pithumbsize=100'
+      );
+      if (wikiRes.ok) {
+        const wikiData = await wikiRes.json();
+        const pages = wikiData.query?.pages || {};
+        const page = Object.values(pages)[0];
+        const imageUrl = page?.thumbnail?.source;
+        
+        if (imageUrl) {
+          const imageLoads = await testImageLoads(imageUrl);
+          if (imageLoads) {
+            setStatus(s => ({ ...s, wikipedia: { status: 'ok', message: 'Images loading' } }));
+          } else {
+            setStatus(s => ({ ...s, wikipedia: { status: 'error', message: 'Images blocked' } }));
+          }
+        } else {
+          setStatus(s => ({ ...s, wikipedia: { status: 'warning', message: 'No image returned' } }));
+        }
+      } else {
+        setStatus(s => ({ ...s, wikipedia: { status: 'error', message: 'API error' } }));
+      }
+    } catch (e) {
+      setStatus(s => ({ ...s, wikipedia: { status: 'error', message: 'Failed' } }));
+    }
+
+    // Check Lichess API
+    try {
+      const lichessRes = await fetch('https://lichess.org/api/user/DrNykterstein', {
+        headers: { Accept: 'application/json' }
+      });
+      if (lichessRes.ok) {
+        setStatus(s => ({ ...s, lichess: { status: 'ok', message: 'Connected' } }));
+      } else {
+        setStatus(s => ({ ...s, lichess: { status: 'error', message: 'API error' } }));
+      }
+    } catch (e) {
+      setStatus(s => ({ ...s, lichess: { status: 'error', message: 'Failed' } }));
+    }
+
+    // Check Chess.com API
+    try {
+      const chesscomRes = await fetch('https://api.chess.com/pub/player/magnuscarlsen');
+      if (chesscomRes.ok) {
+        setStatus(s => ({ ...s, chesscom: { status: 'ok', message: 'Connected' } }));
+      } else {
+        setStatus(s => ({ ...s, chesscom: { status: 'error', message: 'API error' } }));
+      }
+    } catch (e) {
+      setStatus(s => ({ ...s, chesscom: { status: 'error', message: 'Failed' } }));
     }
 
     // Check Stockfish
@@ -2811,18 +2779,6 @@ function SystemDiagnostics({ colors }) {
       setStatus(s => ({ ...s, audio: { status: 'error', message: 'Error' } }));
     }
 
-    // Check Voice Synthesis
-    try {
-      if ('speechSynthesis' in window) {
-        const voices = window.speechSynthesis.getVoices();
-        setStatus(s => ({ ...s, voice: { status: 'ok', message: `${voices.length || '✓'} voices` } }));
-      } else {
-        setStatus(s => ({ ...s, voice: { status: 'error', message: 'Not supported' } }));
-      }
-    } catch (e) {
-      setStatus(s => ({ ...s, voice: { status: 'error', message: 'Error' } }));
-    }
-
     // Check LocalStorage
     try {
       localStorage.setItem('_test_', '1');
@@ -2847,11 +2803,13 @@ function SystemDiagnostics({ colors }) {
   }, {});
 
   const services = [
-    { key: 'ai', name: 'AI Coach', sub: 'Claude API' },
     { key: 'supabase', name: 'Database', sub: 'Supabase' },
+    { key: 'wikipedia', name: 'Images', sub: 'Wikipedia' },
+    { key: 'lichess', name: 'Lichess', sub: 'API' },
+    { key: 'chesscom', name: 'Chess.com', sub: 'API' },
     { key: 'stockfish', name: 'Engine', sub: 'Stockfish' },
     { key: 'audio', name: 'Audio', sub: 'Web Audio' },
-    { key: 'voice', name: 'Voice', sub: 'TTS' },
+    { key: 'ai', name: 'AI Coach', sub: 'Claude API' },
     { key: 'storage', name: 'Storage', sub: 'Local' }
   ];
 

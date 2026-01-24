@@ -57,8 +57,13 @@ export default function PlayVsBot({ profile, onBack }) {
       const msg = evt.data;
 
       if (msg.type === "ready") {
+        console.log("[PlayVsBot] Stockfish ready");
         setEngineReady(true);
         setEngineError(null);
+      }
+
+      if (msg.type === "log") {
+        console.log("[Stockfish]", msg.message);
       }
 
       if (msg.type === "error") {
@@ -317,7 +322,11 @@ export default function PlayVsBot({ profile, onBack }) {
         {/* Engine status */}
         {engineError && (
           <div style={{ background: "rgba(198,40,40,0.3)", borderRadius: 8, padding: 12, fontSize: 13 }}>
-            ⚠️ Engine error: {engineError}
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠️ Stockfish Error</div>
+            <div style={{ opacity: 0.9, marginBottom: 8 }}>{engineError}</div>
+            <div style={{ fontSize: 11, opacity: 0.7 }}>
+              Try refreshing the page. If the issue persists, your browser may be blocking the Stockfish CDN.
+            </div>
           </div>
         )}
 

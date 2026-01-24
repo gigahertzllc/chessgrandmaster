@@ -248,6 +248,13 @@ import PlayVsBot from "./components/PlayVsBot.jsx";
 import ZoneMode from "./components/ZoneMode.jsx";
 import PlayerProfile from "./components/PlayerProfile.jsx";
 import AdminPanel from "./components/AdminPanel.jsx";
+import { 
+  GalleryMastersLayout, 
+  TypographicMastersLayout, 
+  EditorialMastersLayout,
+  ClassicMastersLayout,
+  ModernMastersLayout 
+} from "./components/ThemedLayouts.jsx";
 import { ChessCoach } from "./coaching/index.js";
 import { personalities } from "./engine/personalities.js";
 import { FAMOUS_GAMES, GAME_CATEGORIES, getGamesByCategory, searchGames } from "./data/famousGames.js";
@@ -269,7 +276,7 @@ import "./styles/gallery.css";
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "3.4.0";
+const APP_VERSION = "3.5.0";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -555,6 +562,37 @@ export default function App() {
     const source = SOURCES[sourceId];
     return isClassic ? source?.classicIcon : source?.icon;
   };
+
+  // Get the current theme's layout type
+  const getThemeLayout = () => {
+    if (theme.themeClass === 'gallery') return 'gallery';
+    if (theme.themeClass === 'typographic') return 'typographic';
+    if (theme.themeClass === 'editorial') return 'editorial';
+    if (theme.isClassic) return 'classic';
+    return 'modern';
+  };
+  const themeLayout = getThemeLayout();
+
+  // Compute players with overrides applied
+  const playersWithOverrides = useMemo(() => {
+    const result = {};
+    Object.entries(PLAYERS).forEach(([id, basePlayer]) => {
+      const override = playerOverrides[id] || {};
+      result[id] = {
+        ...basePlayer,
+        imageUrl: override.customImageUrl || basePlayer.imageUrl,
+        bio: override.customBio || basePlayer.bio,
+        fullName: override.fullName || basePlayer.fullName,
+        born: override.born || basePlayer.born,
+        died: override.died || basePlayer.died,
+        nationality: override.nationality || basePlayer.nationality,
+        peakRating: override.peakRating || basePlayer.peakRating,
+        worldChampion: override.worldChampion || basePlayer.worldChampion,
+        playingStyle: override.playingStyle || basePlayer.playingStyle
+      };
+    });
+    return result;
+  }, [playerOverrides]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
@@ -1410,529 +1448,79 @@ export default function App() {
             </div>
           )}
 
+
           {source === "masters" && (
             <div style={{ marginBottom: 24 }}>
-              {/* Header */}
-              <div style={{ marginBottom: isMobile ? 16 : 24 }}>
-                <h2 style={{ fontFamily: fonts.display, fontSize: isMobile ? 20 : 24, marginBottom: 8, color: theme.ink }}>
-                  Chess Legends
-                </h2>
-                <p style={{ fontSize: isMobile ? 13 : 14, color: theme.inkMuted, maxWidth: 600, lineHeight: 1.5 }}>
-                  Explore curated game collections from the greatest players in chess history.
-                </p>
-              </div>
-              
               {customPlayersLoading && (
                 <div style={{ padding: 20, textAlign: "center", color: theme.inkMuted }}>
                   Loading players...
                 </div>
               )}
               
-              {/* Player Grid - Responsive */}
-              <div className="player-grid" style={{ 
-                display: "grid", 
-                gridTemplateColumns: isClassic
-                  ? (isMobile ? "repeat(2, 1fr)" : isTablet ? "repeat(3, 1fr)" : "repeat(4, 1fr)")
-                  : (isMobile ? "1fr" : isTablet ? "repeat(auto-fill, minmax(280px, 1fr))" : "repeat(auto-fill, minmax(320px, 1fr))"), 
-                gap: isClassic ? (isMobile ? 12 : 20) : (isMobile ? 12 : 20)
-              }}>
-                {/* Built-in players */}
-                {Object.entries(PLAYERS).map(([id, basePlayer]) => {
-                  // Merge with any overrides from database
-                  const override = playerOverrides[id] || {};
-                  const player = {
-                    ...basePlayer,
-                    imageUrl: override.customImageUrl || basePlayer.imageUrl,
-                    bio: override.customBio || basePlayer.bio,
-                    fullName: override.fullName || basePlayer.fullName,
-                    born: override.born || basePlayer.born,
-                    died: override.died || basePlayer.died,
-                    nationality: override.nationality || basePlayer.nationality,
-                    peakRating: override.peakRating || basePlayer.peakRating,
-                    worldChampion: override.worldChampion || basePlayer.worldChampion,
-                    playingStyle: override.playingStyle || basePlayer.playingStyle
-                  };
-                  const gameCount = getGamesByMaster(id).length;
-                  const hasGames = MASTER_COLLECTIONS[id] || gameCount > 0;
-                  
-                  return (
-                    <div 
-                      key={id} 
-                      className={`player-card ${selectedMaster === id ? 'active' : ''}`}
-                      onClick={() => loadMaster(id)} 
-                      style={isClassic ? {
-                        // Classic theme: vertical card with background image
-                        position: "relative",
-                        aspectRatio: "3 / 4",
-                        backgroundColor: theme.card,
-                        overflow: "hidden",
-                        border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                        cursor: "pointer",
-                        transition: "border-color 0.3s ease"
-                      } : {
-                        // Modern theme: horizontal card
-                        backgroundColor: theme.card,
-                        borderRadius: isMobile ? 12 : 16,
-                        overflow: "hidden",
-                        border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                        display: "flex",
-                        flexDirection: "column"
-                      }}
-                      onMouseOver={(e) => { 
-                        if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60";
-                        const img = e.currentTarget.querySelector('.player-bg-image');
-                        if (img && isClassic) img.style.filter = "grayscale(0%)";
-                      }}
-                      onMouseOut={(e) => { 
-                        if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border;
-                        const img = e.currentTarget.querySelector('.player-bg-image');
-                        if (img && isClassic) img.style.filter = "grayscale(100%)";
-                      }}
-                    >
-                      {/* Classic theme: Full background image */}
-                      {isClassic && player.imageUrl && (
-                        <img 
-                          className="player-bg-image"
-                          src={player.imageUrl}
-                          alt={player.name}
-                          referrerPolicy="no-referrer"
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            objectPosition: "center top",
-                            filter: "grayscale(100%)",
-                            transition: "filter 0.3s ease",
-                            zIndex: 0
-                          }}
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      )}
-                      
-                      {/* Top Section - Image + Basic Info */}
-                      <div className="player-card-header" style={{ display: isClassic ? "none" : "flex", height: isClassic ? "auto" : (isMobile ? 100 : 140) }}>
-                        {/* Player Image - hidden in classic (uses card background instead) */}
-                        {!isClassic && (
-                          <div className="player-image" style={{ 
-                            width: isMobile ? 100 : 140,
-                            minWidth: isMobile ? 100 : 140,
-                            backgroundColor: theme.bgAlt,
-                            position: "relative",
-                            overflow: "hidden",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center"
-                          }}>
-                            {player.imageUrl ? (
-                              <img 
-                                src={player.imageUrl}
-                                alt={player.name}
-                                referrerPolicy="no-referrer"
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  objectPosition: "center top"
-                                }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <div className="player-avatar" style={{ 
-                                width: isMobile ? 50 : 70, 
-                                height: isMobile ? 50 : 70, 
-                                borderRadius: "50%", 
-                                background: theme.accentSoft,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: isMobile ? 20 : 28,
-                                color: theme.accent
-                              }}>
-                                {player.name.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Quick Info - different layout for classic vs modern */}
-                        {!isClassic && (
-                          <div className="player-info" style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                            <div className="player-name" style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
-                              {player.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
-                              {player.nationality}
-                            </div>
-                            
-                            {/* Key Stats */}
-                            <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-                              {player.peakRating && (
-                                <div>
-                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
-                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peakRating}</div>
-                                </div>
-                              )}
-                              {player.worldChampion && (
-                                <div>
-                                  <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
-                                  <div style={{ color: theme.ink, fontWeight: 600 }}>{player.worldChampion}</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Classic theme: info at bottom with gradient overlay */}
-                      {isClassic && (
-                        <div className="player-info" style={{
-                          position: "absolute",
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          padding: isMobile ? 16 : 20,
-                          paddingTop: 60,
-                          background: "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.95) 100%)",
-                          zIndex: 2
-                        }}>
-                          {/* Large initial letter watermark */}
-                          <div style={{
-                            position: "absolute",
-                            bottom: 20,
-                            right: -5,
-                            fontSize: isMobile ? 80 : 120,
-                            fontFamily: fonts.display,
-                            fontWeight: 400,
-                            color: "rgba(255,255,255,0.06)",
-                            lineHeight: 1,
-                            pointerEvents: "none",
-                            zIndex: 1
-                          }}>
-                            {player.name.charAt(0)}
-                          </div>
-                          
-                          <div 
-                            className="player-name" 
-                            onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
-                            style={{ 
-                              position: "relative",
-                              zIndex: 2,
-                              fontFamily: fonts.display, 
-                              fontSize: isMobile ? 16 : 20, 
-                              fontWeight: 400, 
-                              color: "#fff", 
-                              marginBottom: 4,
-                              textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-                              cursor: "pointer"
-                            }}>
-                            {player.name}
-                          </div>
-                          <div className="player-era" style={{ position: "relative", zIndex: 2, fontSize: 11, color: "rgba(255,255,255,0.7)", letterSpacing: "0.05em" }}>
-                            {player.era || player.nationality}
-                          </div>
-                          <div className="player-games" style={{ position: "relative", zIndex: 2, fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                            {gameCount} games
-                          </div>
-                        </div>
-                      )}
-                      {/* Bottom Section - Bio + Actions (modern theme only) */}
-                      {!isClassic && (
-                      <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
-                        {/* Bio Excerpt */}
-                        <p style={{ 
-                          fontSize: 13, 
-                          color: theme.inkMuted, 
-                          lineHeight: 1.5, 
-                          marginBottom: 16,
-                          flex: 1,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden"
-                        }}>
-                          {player.bio?.split('\n\n')[0]?.slice(0, 120)}...
-                        </p>
-                        
-                        {/* Action Row */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); loadMaster(id); }}
-                            style={{ 
-                              flex: 1,
-                              padding: "10px 16px", 
-                              borderRadius: 8, 
-                              border: "none", 
-                              background: hasGames ? theme.accent : theme.bgAlt, 
-                              color: hasGames ? (theme.id === "light" ? "#fff" : theme.bg) : theme.inkMuted, 
-                              cursor: hasGames ? "pointer" : "default",
-                              fontWeight: 600, 
-                              fontSize: 13,
-                              transition 
-                            }}>
-                            {hasGames ? "View Games" : "No Games Yet"}
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setShowPlayerProfile(id); }}
-                            style={{ 
-                              padding: "10px 16px", 
-                              borderRadius: 8, 
-                              border: `1px solid ${theme.border}`, 
-                              background: "transparent", 
-                              color: theme.ink, 
-                              cursor: "pointer", 
-                              fontWeight: 500, 
-                              fontSize: 13,
-                              transition 
-                            }}>
-                            Biography
-                          </button>
-                        </div>
-                      </div>
-                      )}
-                    </div>
-                  );
-                })}
-                
-                {/* Custom players from Supabase */}
-                {customPlayers.map(player => (
-                  <div 
-                    key={player.id} 
-                    className={`player-card ${selectedMaster === player.id ? 'active' : ''}`}
-                    onClick={() => loadMaster(player.id)} 
-                    style={isClassic ? {
-                      // Classic theme: vertical card with background image
-                      position: "relative",
-                      aspectRatio: "3 / 4",
-                      backgroundColor: theme.card,
-                      overflow: "hidden",
-                      border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                      cursor: "pointer",
-                      transition: "border-color 0.3s ease"
-                    } : {
-                      // Modern theme: horizontal card
-                      backgroundColor: theme.card,
-                      borderRadius: 16,
-                      overflow: "hidden",
-                      border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
-                      transition: "all 0.2s ease",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      position: "relative"
-                    }}
-                    onMouseOver={(e) => { 
-                      const img = e.currentTarget.querySelector('.player-bg-image');
-                      if (img && isClassic) img.style.filter = "grayscale(0%)";
-                    }}
-                    onMouseOut={(e) => { 
-                      const img = e.currentTarget.querySelector('.player-bg-image');
-                      if (img && isClassic) img.style.filter = "grayscale(100%)";
-                    }}
-                  >
-                    {/* Classic theme: Full background image */}
-                    {isClassic && player.image_url && (
-                      <img 
-                        className="player-bg-image"
-                        src={player.image_url}
-                        alt={player.name}
-                        referrerPolicy="no-referrer"
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: "center top",
-                          filter: "grayscale(100%)",
-                          transition: "filter 0.3s ease",
-                          zIndex: 0
-                        }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    )}
-                    
-                    {/* Custom Badge */}
-                    <div style={{
-                      position: "absolute",
-                      top: 12,
-                      right: 12,
-                      padding: "4px 8px",
-                      background: "rgba(156,39,176,0.9)",
-                      borderRadius: isClassic ? 0 : 4,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: "#fff",
-                      zIndex: 10,
-                      letterSpacing: isClassic ? "0.05em" : "0"
-                    }}>
-                      CUSTOM
-                    </div>
-                    
-                    {/* Classic theme: info at bottom */}
-                    {isClassic && (
-                      <div className="player-info" style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: isMobile ? 16 : 20,
-                        paddingTop: 60,
-                        background: "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.95) 100%)",
-                        zIndex: 2
-                      }}>
-                        <div style={{
-                          position: "absolute",
-                          bottom: 20,
-                          right: -5,
-                          fontSize: isMobile ? 80 : 120,
-                          fontFamily: fonts.display,
-                          fontWeight: 400,
-                          color: "rgba(255,255,255,0.06)",
-                          lineHeight: 1,
-                          pointerEvents: "none",
-                          zIndex: 1
-                        }}>
-                          {player.name?.charAt(0) || "?"}
-                        </div>
-                        <div className="player-name" style={{ 
-                          position: "relative", zIndex: 2,
-                          fontFamily: fonts.display, 
-                          fontSize: isMobile ? 16 : 20, 
-                          fontWeight: 400, 
-                          color: "#fff", 
-                          marginBottom: 4,
-                          textShadow: "0 1px 3px rgba(0,0,0,0.5)"
-                        }}>
-                          {player.name}
-                        </div>
-                        <div className="player-era" style={{ position: "relative", zIndex: 2, fontSize: 11, color: "rgba(255,255,255,0.7)", letterSpacing: "0.05em" }}>
-                          {player.nationality || "Unknown"}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Modern theme: Top Section - Image + Basic Info */}
-                    {!isClassic && (
-                    <>
-                    <div style={{ display: "flex", height: 140 }}>
-                      {/* Player Image */}
-                      <div style={{ 
-                        width: 140,
-                        minWidth: 140,
-                        backgroundColor: theme.bgAlt,
-                        position: "relative",
-                        overflow: "hidden",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}>
-                        {player.image_url ? (
-                          <img 
-                            src={player.image_url}
-                            alt={player.name}
-                            referrerPolicy="no-referrer"
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              objectPosition: "center top"
-                            }}
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div style={{ 
-                            width: 70, 
-                            height: 70, 
-                            borderRadius: "50%", 
-                            background: "rgba(156,39,176,0.2)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 28,
-                            color: "#9C27B0"
-                          }}>
-                            {player.name?.charAt(0) || "?"}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Quick Info */}
-                      <div style={{ flex: 1, padding: 16, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink, marginBottom: 4, lineHeight: 1.2 }}>
-                          {player.name}
-                        </div>
-                        <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
-                          {player.nationality || "Unknown"}
-                        </div>
-                        
-                        {/* Key Stats */}
-                        <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-                          {player.peak_rating && (
-                            <div>
-                              <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Peak</div>
-                              <div style={{ color: theme.ink, fontWeight: 600 }}>{player.peak_rating}</div>
-                            </div>
-                          )}
-                          {player.world_champion && (
-                            <div>
-                              <div style={{ color: theme.inkMuted, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Champion</div>
-                              <div style={{ color: theme.ink, fontWeight: 600 }}>{player.world_champion}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Bottom Section - Bio + Actions (modern theme only) */}
-                    <div style={{ padding: 16, borderTop: `1px solid ${theme.border}`, flex: 1, display: "flex", flexDirection: "column" }}>
-                      {/* Bio Excerpt */}
-                      <p style={{ 
-                        fontSize: 13, 
-                        color: theme.inkMuted, 
-                        lineHeight: 1.5, 
-                        marginBottom: 16,
-                        flex: 1,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden"
-                      }}>
-                        {player.bio?.slice(0, 120) || "Custom player added via Admin Panel."}...
-                      </p>
-                      
-                      {/* Action Row */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); loadMaster(player.id); }}
-                          style={{ 
-                            flex: 1,
-                            padding: "10px 16px", 
-                            borderRadius: 8, 
-                            border: "none", 
-                            background: theme.accent, 
-                            color: theme.id === "light" ? "#fff" : theme.bg, 
-                            cursor: "pointer",
-                            fontWeight: 600, 
-                            fontSize: 13,
-                            transition 
-                          }}>
-                          View Games
-                        </button>
-                      </div>
-                    </div>
-                    </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {/* Render themed layout based on current theme */}
+              {themeLayout === 'gallery' && (
+                <GalleryMastersLayout
+                  players={playersWithOverrides}
+                  customPlayers={customPlayers}
+                  selectedMaster={selectedMaster}
+                  onSelectMaster={loadMaster}
+                  onShowBiography={(id) => setShowPlayerProfile(id)}
+                  theme={theme}
+                  dbGameCounts={dbGameCounts}
+                />
+              )}
+              
+              {themeLayout === 'typographic' && (
+                <TypographicMastersLayout
+                  players={playersWithOverrides}
+                  customPlayers={customPlayers}
+                  selectedMaster={selectedMaster}
+                  onSelectMaster={loadMaster}
+                  onShowBiography={(id) => setShowPlayerProfile(id)}
+                  theme={theme}
+                  dbGameCounts={dbGameCounts}
+                />
+              )}
+              
+              {themeLayout === 'editorial' && (
+                <EditorialMastersLayout
+                  players={playersWithOverrides}
+                  customPlayers={customPlayers}
+                  selectedMaster={selectedMaster}
+                  onSelectMaster={loadMaster}
+                  onShowBiography={(id) => setShowPlayerProfile(id)}
+                  theme={theme}
+                  dbGameCounts={dbGameCounts}
+                />
+              )}
+              
+              {themeLayout === 'classic' && (
+                <ClassicMastersLayout
+                  players={playersWithOverrides}
+                  customPlayers={customPlayers}
+                  selectedMaster={selectedMaster}
+                  onSelectMaster={loadMaster}
+                  onShowBiography={(id) => setShowPlayerProfile(id)}
+                  theme={theme}
+                  dbGameCounts={dbGameCounts}
+                  isMobile={isMobile}
+                  isTablet={isTablet}
+                />
+              )}
+              
+              {themeLayout === 'modern' && (
+                <ModernMastersLayout
+                  players={playersWithOverrides}
+                  customPlayers={customPlayers}
+                  selectedMaster={selectedMaster}
+                  onSelectMaster={loadMaster}
+                  onShowBiography={(id) => setShowPlayerProfile(id)}
+                  theme={theme}
+                  dbGameCounts={dbGameCounts}
+                  isMobile={isMobile}
+                  isTablet={isTablet}
+                />
+              )}
             </div>
           )}
           {(source === "lichess" || source === "chesscom") && (
