@@ -1,24 +1,17 @@
 /**
  * ChessGrandmaster 2026
- * Version: 3.4.0
- * Last Updated: January 24, 2026
+ * Version: 3.1.2
+ * Last Updated: January 21, 2026
  * 
- * v3.4.0 - New Design Themes + Photo Selection
- *   - NEW: Gallery theme (experimental/museum style, orange accent)
- *   - NEW: Typographic theme (bold typography, red-orange accent)
- *   - NEW: Editorial theme (magazine style, gold accent)
- *   - Each theme has dark and light variants
- *   - Admin Panel: Photo selection from Wikipedia (multiple image options)
- *   - Uses Wikipedia Action API (Method 3) for reliable image loading
- *   - Zone Mode updated with theme color schemes
- *
- * v3.3.0 - Major Fixes
- *   - FIXED: Classic Dark is now the DEFAULT theme
- *   - FIXED: Masters is now the DEFAULT tab
- *   - FIXED: All emojis removed, using text symbols only
- *   - FIXED: Wikipedia images use <img> tags with referrerPolicy
- *   - ADDED: "Seed to DB" in Admin Panel to save built-in players to Supabase
- *   - ADDED: db.seedBuiltInPlayers() and db.getAllPlayers() functions
+ * v3.1.2 - Classic Theme Vertical Cards (Fixed)
+ *   - FIXED: Inline styles now conditional for classic vs modern themes
+ *   - Classic theme: Vertical cards with 3:4 aspect ratio
+ *   - Classic theme: Full background images, grayscale → color on hover  
+ *   - Classic theme: Large initial letter watermark (120px)
+ *   - Classic theme: Gradient overlay at bottom with name/era/games
+ *   - Classic theme: Grid 2/3/4 columns (mobile/tablet/desktop)
+ *   - Modern theme: Horizontal cards with bio excerpt + action buttons
+ *   - Custom players also support both theme layouts
  *
  * v3.1.0 - Modular CSS Architecture
  *   - Split themes.css into modular files:
@@ -262,14 +255,11 @@ import "./styles/components.css";
 import "./styles/modern.css";
 import "./styles/classic.css";
 import "./styles/responsive.css";
-import "./styles/editorial.css";
-import "./styles/typographic.css";
-import "./styles/gallery.css";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // APP VERSION - Update this when deploying new versions
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = "3.4.0";
+const APP_VERSION = "3.1.2";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DESIGN SYSTEM - Inspired by Panneau, Roger Black typography
@@ -339,84 +329,15 @@ const THEMES = {
     border: "rgba(0, 0, 0, 0.08)", borderStrong: "rgba(0, 0, 0, 0.15)",
     shadow: "0 2px 8px rgba(0, 0, 0, 0.06)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.12)",
     isClassic: true
-  },
-  // NEW: Gallery Theme (v2-design-5 - Experimental/Museum)
-  "gallery": {
-    id: "gallery", name: "Gallery",
-    bg: "#0C0C0C", bgAlt: "#141414",
-    card: "#141414", cardHover: "#1A1A1A",
-    ink: "#FFFFFF", inkMuted: "#666666", inkFaint: "#444444",
-    accent: "#FF5C00", accentSoft: "rgba(255, 92, 0, 0.15)",
-    success: "#4CAF50", error: "#EF5350",
-    border: "rgba(255, 255, 255, 0.08)", borderStrong: "rgba(255, 255, 255, 0.15)",
-    shadow: "0 4px 24px rgba(0, 0, 0, 0.5)", shadowStrong: "0 12px 48px rgba(0, 0, 0, 0.7)",
-    themeClass: "gallery"
-  },
-  "gallery-light": {
-    id: "gallery-light", name: "Gallery Light",
-    bg: "#F5F5F5", bgAlt: "#EBEBEB",
-    card: "#FFFFFF", cardHover: "#F5F5F5",
-    ink: "#0C0C0C", inkMuted: "#666666", inkFaint: "#999999",
-    accent: "#FF5C00", accentSoft: "rgba(255, 92, 0, 0.1)",
-    success: "#2E7D32", error: "#C62828",
-    border: "rgba(0, 0, 0, 0.08)", borderStrong: "rgba(0, 0, 0, 0.15)",
-    shadow: "0 2px 8px rgba(0, 0, 0, 0.08)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.12)",
-    themeClass: "gallery"
-  },
-  // NEW: Typographic Theme (v2-design-2 - Pentagram/Paula Scher)
-  "typographic": {
-    id: "typographic", name: "Typographic",
-    bg: "#1A1A1A", bgAlt: "#242424",
-    card: "#242424", cardHover: "#2E2E2E",
-    ink: "#F0EDE6", inkMuted: "#999999", inkFaint: "#666666",
-    accent: "#FF4D00", accentSoft: "rgba(255, 77, 0, 0.15)",
-    success: "#4CAF50", error: "#EF5350",
-    border: "rgba(255, 255, 255, 0.1)", borderStrong: "rgba(255, 255, 255, 0.2)",
-    shadow: "0 4px 24px rgba(0, 0, 0, 0.5)", shadowStrong: "0 12px 48px rgba(0, 0, 0, 0.7)",
-    themeClass: "typographic"
-  },
-  "typographic-light": {
-    id: "typographic-light", name: "Typographic Light",
-    bg: "#F0EDE6", bgAlt: "#E5E2DB",
-    card: "#FFFFFF", cardHover: "#F0EDE6",
-    ink: "#1A1A1A", inkMuted: "#666666", inkFaint: "#999999",
-    accent: "#FF4D00", accentSoft: "rgba(255, 77, 0, 0.1)",
-    success: "#2E7D32", error: "#C62828",
-    border: "rgba(0, 0, 0, 0.1)", borderStrong: "rgba(0, 0, 0, 0.2)",
-    shadow: "0 2px 8px rgba(0, 0, 0, 0.08)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.12)",
-    themeClass: "typographic"
-  },
-  // NEW: Editorial Theme (design-1-editorial - Magazine/Newspaper)
-  "editorial": {
-    id: "editorial", name: "Editorial",
-    bg: "#0A0A0B", bgAlt: "#111112",
-    card: "#111112", cardHover: "#181819",
-    ink: "#F5F5F3", inkMuted: "#888886", inkFaint: "#555553",
-    accent: "#C9A227", accentSoft: "rgba(201, 162, 39, 0.15)",
-    success: "#3D8B40", error: "#C23B22",
-    border: "rgba(255, 255, 255, 0.08)", borderStrong: "rgba(255, 255, 255, 0.15)",
-    shadow: "0 4px 24px rgba(0, 0, 0, 0.5)", shadowStrong: "0 12px 48px rgba(0, 0, 0, 0.7)",
-    themeClass: "editorial"
-  },
-  "editorial-light": {
-    id: "editorial-light", name: "Editorial Light",
-    bg: "#FAFAF8", bgAlt: "#F5F5F3",
-    card: "#FFFFFF", cardHover: "#F5F5F3",
-    ink: "#1A1A1A", inkMuted: "#666664", inkFaint: "#999997",
-    accent: "#8B6914", accentSoft: "rgba(139, 105, 20, 0.1)",
-    success: "#2E7D32", error: "#C62828",
-    border: "rgba(0, 0, 0, 0.08)", borderStrong: "rgba(0, 0, 0, 0.15)",
-    shadow: "0 2px 8px rgba(0, 0, 0, 0.06)", shadowStrong: "0 8px 32px rgba(0, 0, 0, 0.12)",
-    themeClass: "editorial"
   }
 };
 
 const SOURCES = {
-  classics: { id: "classics", name: "Classics", icon: "♔", classicIcon: "♔" },
-  masters: { id: "masters", name: "Masters", icon: "★", classicIcon: "★" },
-  lichess: { id: "lichess", name: "Lichess", icon: "♞", classicIcon: "♞" },
+  classics: { id: "classics", name: "Classics", icon: "👑", classicIcon: "♔" },
+  masters: { id: "masters", name: "Masters", icon: "🏆", classicIcon: "★" },
+  lichess: { id: "lichess", name: "Lichess", icon: "🐴", classicIcon: "♞" },
   chesscom: { id: "chesscom", name: "Chess.com", icon: "♟", classicIcon: "♟" },
-  imported: { id: "imported", name: "My Games", icon: "▤", classicIcon: "▤" }
+  imported: { id: "imported", name: "My Games", icon: "📁", classicIcon: "▤" }
 };
 
 // Classic (emoji-free) icons for navigation
@@ -436,21 +357,21 @@ const CLASSIC_ICONS = {
   flame: "◆"
 };
 
-// Text-based icons (no emojis)
+// Regular emoji icons
 const EMOJI_ICONS = {
-  library: "◎",
-  play: "▶",
-  coach: "△",
-  zone: "◇",
-  training: "◇",
+  library: "📚",
+  play: "♟️",
+  coach: "🎓",
+  zone: "🎯",
+  training: "🎯",
   settings: "⚙",
   close: "✕",
   back: "←",
   forward: "→",
-  search: "○",
+  search: "🔍",
   check: "✓",
-  star: "★",
-  flame: "◆"
+  star: "⭐",
+  flame: "🔥"
 };
 
 const LICHESS_PLAYERS = [
@@ -482,7 +403,7 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════════════════════
   
   // Theme state
-  const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "gallery");
+  const [themeId, setThemeId] = useState(() => localStorage.getItem("cm-theme") || "dark");
   const [boardThemeId, setBoardThemeId] = useState(() => localStorage.getItem("cm-board-theme") || "classic_wood");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   
@@ -509,7 +430,7 @@ export default function App() {
   const [coachingProfile, setCoachingProfile] = useState(null);
   
   // Library state
-  const [source, setSource] = useState("masters");
+  const [source, setSource] = useState("classics");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -517,7 +438,6 @@ export default function App() {
   const [masterGames, setMasterGames] = useState([]);
   const [customPlayers, setCustomPlayers] = useState([]);
   const [customPlayersLoading, setCustomPlayersLoading] = useState(false);
-  const [playerOverrides, setPlayerOverrides] = useState({}); // Custom images/data from Supabase
   const [dbGameCounts, setDbGameCounts] = useState({}); // Game counts from Supabase
   const [games, setGames] = useState([]);
   const [loadingGames, setLoadingGames] = useState(false);
@@ -625,24 +545,6 @@ export default function App() {
     localStorage.setItem("cm-theme", themeId);
     document.body.style.background = theme.bg;
     document.body.style.color = theme.ink;
-    
-    // Apply theme class to body for CSS targeting
-    // Remove old theme classes
-    document.body.classList.remove('theme-gallery', 'theme-typographic', 'theme-editorial', 'theme-classic', 'theme-modern');
-    document.body.classList.remove('light', 'dark');
-    
-    // Add new theme class based on themeId
-    if (theme.themeClass) {
-      document.body.classList.add(`theme-${theme.themeClass}`);
-    } else if (theme.isClassic) {
-      document.body.classList.add('theme-classic');
-    } else {
-      document.body.classList.add('theme-modern');
-    }
-    
-    // Add light/dark modifier
-    const isLight = themeId.includes('light') || themeId === 'sepia';
-    document.body.classList.add(isLight ? 'light' : 'dark');
   }, [themeId, theme]);
 
   // Auth effect
@@ -772,39 +674,10 @@ export default function App() {
     setCustomPlayersLoading(false);
   };
 
-  // Load player overrides (custom images, etc.) from Supabase
-  const loadPlayerOverrides = async () => {
-    try {
-      const { data, error } = await db.getAllPlayerOverrides();
-      if (error) throw error;
-      if (data) {
-        const overridesMap = {};
-        data.forEach(o => {
-          overridesMap[o.player_id] = {
-            customImageUrl: o.custom_image_url,
-            customBio: o.custom_bio,
-            fullName: o.full_name,
-            born: o.born,
-            died: o.died,
-            nationality: o.nationality,
-            peakRating: o.peak_rating,
-            worldChampion: o.world_champion,
-            playingStyle: o.playing_style
-          };
-        });
-        setPlayerOverrides(overridesMap);
-        console.log("Loaded player overrides:", Object.keys(overridesMap).length);
-      }
-    } catch (e) {
-      console.error("Error loading player overrides:", e);
-    }
-  };
-
   // Load custom players when source changes to "masters"
   useEffect(() => {
     if (source === "masters") {
       loadCustomPlayers();
-      loadPlayerOverrides();
     }
   }, [source]);
 
@@ -1041,7 +914,7 @@ export default function App() {
               background: "transparent", border: "none", color: theme.ink,
               padding: 8, cursor: "pointer", fontSize: 20
             }}
-          >Settings</button>
+          >⚙️</button>
         </header>
       )}
 
@@ -1177,7 +1050,7 @@ export default function App() {
                           background: "transparent", color: theme.ink, cursor: "pointer", textAlign: "left", 
                           fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 10
                         }}>
-                        Admin Panel
+                        ⚙️ Admin Panel
                       </button>
                     </div>
                   </div>
@@ -1248,7 +1121,7 @@ export default function App() {
                 background: "transparent", color: theme.ink, cursor: "pointer",
                 fontSize: 13, fontWeight: 500, marginBottom: 8
               }}>
-              Admin Panel
+              ⚙️ Admin Panel
             </button>
             
             {supabase && (
@@ -1284,10 +1157,10 @@ export default function App() {
           display: "flex", justifyContent: "space-around"
         }}>
           {[
-            { id: "library", label: "Library", icon: "◎", classicIcon: "◎" },
-            { id: "play", label: "Play", icon: "▶", classicIcon: "▶" },
-            { id: "coach", label: isClassic ? "Learn" : "Coach", icon: "△", classicIcon: "△" },
-            { id: "zone", label: isClassic ? "Focus" : "Zone", icon: "◇", classicIcon: "◇" }
+            { id: "library", label: "Library", icon: "📚", classicIcon: "◎" },
+            { id: "play", label: "Play", icon: "♟️", classicIcon: "▶" },
+            { id: "coach", label: isClassic ? "Learn" : "Coach", icon: "🎓", classicIcon: "△" },
+            { id: "zone", label: isClassic ? "Focus" : "Zone", icon: "🎯", classicIcon: "◇" }
           ].map(tab => {
             const isActive = activeTab === tab.id || (tab.id === "zone" && showZoneMode) || (tab.id === "coach" && showChessCoach);
             return (
@@ -1437,21 +1310,7 @@ export default function App() {
                 gap: isClassic ? (isMobile ? 12 : 20) : (isMobile ? 12 : 20)
               }}>
                 {/* Built-in players */}
-                {Object.entries(PLAYERS).map(([id, basePlayer]) => {
-                  // Merge with any overrides from database
-                  const override = playerOverrides[id] || {};
-                  const player = {
-                    ...basePlayer,
-                    imageUrl: override.customImageUrl || basePlayer.imageUrl,
-                    bio: override.customBio || basePlayer.bio,
-                    fullName: override.fullName || basePlayer.fullName,
-                    born: override.born || basePlayer.born,
-                    died: override.died || basePlayer.died,
-                    nationality: override.nationality || basePlayer.nationality,
-                    peakRating: override.peakRating || basePlayer.peakRating,
-                    worldChampion: override.worldChampion || basePlayer.worldChampion,
-                    playingStyle: override.playingStyle || basePlayer.playingStyle
-                  };
+                {Object.entries(PLAYERS).map(([id, player]) => {
                   const gameCount = getGamesByMaster(id).length;
                   const hasGames = MASTER_COLLECTIONS[id] || gameCount > 0;
                   
@@ -1468,7 +1327,11 @@ export default function App() {
                         overflow: "hidden",
                         border: selectedMaster === id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                         cursor: "pointer",
-                        transition: "border-color 0.3s ease"
+                        backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center top",
+                        filter: "grayscale(100%)",
+                        transition: "filter 0.3s ease, border-color 0.3s ease"
                       } : {
                         // Modern theme: horizontal card
                         backgroundColor: theme.card,
@@ -1482,37 +1345,13 @@ export default function App() {
                       }}
                       onMouseOver={(e) => { 
                         if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.accent + "60";
-                        const img = e.currentTarget.querySelector('.player-bg-image');
-                        if (img && isClassic) img.style.filter = "grayscale(0%)";
+                        if (isClassic) e.currentTarget.style.filter = "grayscale(0%)";
                       }}
                       onMouseOut={(e) => { 
                         if (selectedMaster !== id && !isMobile) e.currentTarget.style.borderColor = theme.border;
-                        const img = e.currentTarget.querySelector('.player-bg-image');
-                        if (img && isClassic) img.style.filter = "grayscale(100%)";
+                        if (isClassic) e.currentTarget.style.filter = "grayscale(100%)";
                       }}
                     >
-                      {/* Classic theme: Full background image */}
-                      {isClassic && player.imageUrl && (
-                        <img 
-                          className="player-bg-image"
-                          src={player.imageUrl}
-                          alt={player.name}
-                          referrerPolicy="no-referrer"
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            objectPosition: "center top",
-                            filter: "grayscale(100%)",
-                            transition: "filter 0.3s ease",
-                            zIndex: 0
-                          }}
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      )}
-                      
                       {/* Top Section - Image + Basic Info */}
                       <div className="player-card-header" style={{ display: isClassic ? "none" : "flex", height: isClassic ? "auto" : (isMobile ? 100 : 140) }}>
                         {/* Player Image - hidden in classic (uses card background instead) */}
@@ -1521,28 +1360,14 @@ export default function App() {
                             width: isMobile ? 100 : 140,
                             minWidth: isMobile ? 100 : 140,
                             backgroundColor: theme.bgAlt,
-                            position: "relative",
-                            overflow: "hidden",
+                            backgroundImage: player.imageUrl ? `url(${player.imageUrl})` : "none",
+                            backgroundSize: "cover",
+                            backgroundPosition: "center top",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center"
                           }}>
-                            {player.imageUrl ? (
-                              <img 
-                                src={player.imageUrl}
-                                alt={player.name}
-                                referrerPolicy="no-referrer"
-                                style={{
-                                  position: "absolute",
-                                  inset: 0,
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  objectPosition: "center top"
-                                }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                            ) : (
+                            {!player.imageUrl && (
                               <div className="player-avatar" style={{ 
                                 width: isMobile ? 50 : 70, 
                                 height: isMobile ? 50 : 70, 
@@ -1713,7 +1538,11 @@ export default function App() {
                       overflow: "hidden",
                       border: selectedMaster === player.id ? `2px solid ${theme.accent}` : `1px solid ${theme.border}`,
                       cursor: "pointer",
-                      transition: "border-color 0.3s ease"
+                      backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center top",
+                      filter: "grayscale(100%)",
+                      transition: "filter 0.3s ease, border-color 0.3s ease"
                     } : {
                       // Modern theme: horizontal card
                       backgroundColor: theme.card,
@@ -1727,36 +1556,12 @@ export default function App() {
                       position: "relative"
                     }}
                     onMouseOver={(e) => { 
-                      const img = e.currentTarget.querySelector('.player-bg-image');
-                      if (img && isClassic) img.style.filter = "grayscale(0%)";
+                      if (isClassic) e.currentTarget.style.filter = "grayscale(0%)";
                     }}
                     onMouseOut={(e) => { 
-                      const img = e.currentTarget.querySelector('.player-bg-image');
-                      if (img && isClassic) img.style.filter = "grayscale(100%)";
+                      if (isClassic) e.currentTarget.style.filter = "grayscale(100%)";
                     }}
                   >
-                    {/* Classic theme: Full background image */}
-                    {isClassic && player.image_url && (
-                      <img 
-                        className="player-bg-image"
-                        src={player.image_url}
-                        alt={player.name}
-                        referrerPolicy="no-referrer"
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          objectPosition: "center top",
-                          filter: "grayscale(100%)",
-                          transition: "filter 0.3s ease",
-                          zIndex: 0
-                        }}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    )}
-                    
                     {/* Custom Badge */}
                     <div style={{
                       position: "absolute",
@@ -1826,28 +1631,14 @@ export default function App() {
                         width: 140,
                         minWidth: 140,
                         backgroundColor: theme.bgAlt,
-                        position: "relative",
-                        overflow: "hidden",
+                        backgroundImage: player.image_url ? `url(${player.image_url})` : "none",
+                        backgroundSize: "cover",
+                        backgroundPosition: "center top",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center"
                       }}>
-                        {player.image_url ? (
-                          <img 
-                            src={player.image_url}
-                            alt={player.name}
-                            referrerPolicy="no-referrer"
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              objectPosition: "center top"
-                            }}
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
+                        {!player.image_url && (
                           <div style={{ 
                             width: 70, 
                             height: 70, 
@@ -2103,7 +1894,7 @@ export default function App() {
                       fontSize: isMobile ? 15 : 14,
                       minHeight: isMobile ? 48 : "auto"
                     }}>
-                    Enter Focus Mode
+                    🎯 Enter Zone Mode
                   </button>
                 )}
               </div>
@@ -2164,7 +1955,7 @@ export default function App() {
                   </>
                 ) : (
                   <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: theme.inkMuted, flexDirection: "column" }}>
-                    <p style={{ fontSize: 32, marginBottom: 8 }}>♟</p>
+                    <p style={{ fontSize: 32, marginBottom: 8 }}>♟️</p>
                     <p style={{ fontSize: 13 }}>Select a game</p>
                   </div>
                 )}
@@ -2174,7 +1965,7 @@ export default function App() {
 
           {displayGames.length === 0 && !loadingGames && !error && source === "classics" && !selectedCategory && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <p style={{ fontSize: 48, marginBottom: 16 }}>♔</p>
+              <p style={{ fontSize: 48, marginBottom: 16 }}>👑</p>
               <p style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>Explore Classic Games</p>
               <p style={{ color: theme.inkMuted }}>Select a player above or search</p>
             </div>
@@ -2284,7 +2075,7 @@ export default function App() {
             <AdminPanel 
               theme={theme}
               onClose={() => setShowAdminPanel(false)}
-              onPlayersUpdated={() => { loadCustomPlayers(); loadPlayerOverrides(); }}
+              onPlayersUpdated={loadCustomPlayers}
             />
           </div>
         </div>

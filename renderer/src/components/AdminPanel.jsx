@@ -29,6 +29,11 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   const [wikiResults, setWikiResults] = useState([]);
   const [wikiLoading, setWikiLoading] = useState(false);
   
+  // Photo selection state (multiple Wikipedia image options)
+  const [photoOptions, setPhotoOptions] = useState([]);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState(null);
+  
   // Audio state
   const [audioTracks, setAudioTracks] = useState([]);
   const [uploadingAudio, setUploadingAudio] = useState(false);
@@ -43,7 +48,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
   const [newPlayer, setNewPlayer] = useState({
     name: '',
     fullName: '',
-    icon: '♟️',
+    icon: 'Chess',
     born: '',
     died: '',
     birthPlace: '',
@@ -179,7 +184,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         id: playerId,
         name: result.title,
         fullName: result.title,
-        icon: '♟️',
+        icon: 'Chess',
         born: birthMatch ? birthMatch[1] : null,
         died: deathMatch ? deathMatch[1] : null,
         birthPlace: null,
@@ -221,6 +226,190 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
       setImportStatus({ type: 'error', message: `Failed: ${error.message}` });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch multiple photo options from Wikipedia for a player
+  // Actually validates that images load before showing them
+  const fetchPhotoOptions = async (playerName) => {
+    setPhotoLoading(true);
+    setPhotoOptions([]);
+    setSelectedPhotoUrl(null);
+    
+    console.log('=== FETCHING PHOTO OPTIONS FOR:', playerName, '===');
+    setImportStatus({ type: 'loading', message: 'Searching Wikipedia for photos...' });
+    
+    // Helper function to actually test if an image loads
+    const testImageLoads = (url) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          console.log('✓ Image verified:', url.substring(0, 50) + '...');
+          resolve(true);
+        };
+        img.onerror = () => {
+          console.log('✗ Image failed to load:', url.substring(0, 50) + '...');
+          resolve(false);
+        };
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          console.log('✗ Image timeout:', url.substring(0, 50) + '...');
+          resolve(false);
+        }, 5000);
+        img.src = url;
+      });
+    };
+    
+    try {
+      const candidateUrls = [];
+      
+      // Method 1: Get main page image via Action API
+      const mainPageUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(playerName)}&prop=pageimages&format=json&origin=*&pithumbsize=400`;
+      console.log('Fetching main page image:', mainPageUrl);
+      
+      const mainRes = await fetch(mainPageUrl);
+      const mainData = await mainRes.json();
+      const mainPages = mainData.query?.pages || {};
+      const mainPage = Object.values(mainPages)[0];
+      
+      if (mainPage?.thumbnail?.source) {
+        candidateUrls.push({
+          url: mainPage.thumbnail.source,
+          source: 'Wikipedia Main',
+          label: 'Main Article Image'
+        });
+      }
+      
+      // Method 2: Get REST API summary image (may be different)
+      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(playerName)}`;
+      console.log('Fetching summary image:', summaryUrl);
+      
+      const summaryRes = await fetch(summaryUrl);
+      const summaryData = await summaryRes.json();
+      
+      if (summaryData.thumbnail?.source && !candidateUrls.some(o => o.url === summaryData.thumbnail.source)) {
+        candidateUrls.push({
+          url: summaryData.thumbnail.source,
+          source: 'Wikipedia Summary',
+          label: 'Summary Thumbnail'
+        });
+      }
+      
+      if (summaryData.originalimage?.source && !candidateUrls.some(o => o.url === summaryData.originalimage.source)) {
+        candidateUrls.push({
+          url: summaryData.originalimage.source,
+          source: 'Wikipedia Original',
+          label: 'Original (High Res)'
+        });
+      }
+      
+      // Method 3: Search Commons for more images
+      const commonsSearchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(playerName + ' chess')}&srnamespace=6&format=json&origin=*&srlimit=10`;
+      console.log('Searching Commons:', commonsSearchUrl);
+      
+      const commonsRes = await fetch(commonsSearchUrl);
+      const commonsData = await commonsRes.json();
+      
+      if (commonsData.query?.search) {
+        for (const result of commonsData.query.search.slice(0, 6)) {
+          const fileName = result.title.replace('File:', '');
+          const fileInfoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url|thumburl&iiurlwidth=400&format=json&origin=*`;
+          
+          try {
+            const fileRes = await fetch(fileInfoUrl);
+            const fileData = await fileRes.json();
+            const pages = fileData.query?.pages || {};
+            const page = Object.values(pages)[0];
+            const imageInfo = page?.imageinfo?.[0];
+            
+            if (imageInfo?.thumburl && !candidateUrls.some(o => o.url === imageInfo.thumburl)) {
+              candidateUrls.push({
+                url: imageInfo.thumburl,
+                source: 'Wikimedia Commons',
+                label: fileName.substring(0, 40) + (fileName.length > 40 ? '...' : '')
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to get file info for:', result.title);
+          }
+        }
+      }
+      
+      console.log(`Found ${candidateUrls.length} candidate URLs, now verifying they actually load...`);
+      setImportStatus({ type: 'loading', message: `Verifying ${candidateUrls.length} images actually load...` });
+      
+      // NOW ACTUALLY TEST EACH IMAGE LOADS
+      const verifiedOptions = [];
+      for (const candidate of candidateUrls) {
+        const loads = await testImageLoads(candidate.url);
+        if (loads) {
+          verifiedOptions.push(candidate);
+        }
+      }
+      
+      console.log(`Verified: ${verifiedOptions.length}/${candidateUrls.length} images actually load`);
+      setPhotoOptions(verifiedOptions);
+      
+      if (verifiedOptions.length === 0) {
+        setImportStatus({ type: 'error', message: `Found ${candidateUrls.length} URLs but none loaded. Try again or upload manually.` });
+      } else if (verifiedOptions.length < candidateUrls.length) {
+        setImportStatus({ type: 'success', message: `${verifiedOptions.length} photos verified (${candidateUrls.length - verifiedOptions.length} failed to load)` });
+      } else {
+        setImportStatus({ type: 'success', message: `${verifiedOptions.length} photos verified and ready` });
+      }
+      
+    } catch (error) {
+      console.error('Error fetching photo options:', error);
+      setImportStatus({ type: 'error', message: 'Failed to fetch photos: ' + error.message });
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
+
+  // Save selected photo to database
+  const saveSelectedPhoto = async (photoUrl) => {
+    if (!photoUrl) return;
+    
+    setImportStatus({ type: 'loading', message: 'Saving photo...' });
+    
+    try {
+      const isCustomPlayer = !!customPlayers[selectedPlayer];
+      
+      if (isCustomPlayer) {
+        // Custom player - update custom_players table
+        const { error } = await db.updateCustomPlayerImage(selectedPlayer, photoUrl);
+        if (error) throw error;
+        
+        setCustomPlayers(prev => ({
+          ...prev,
+          [selectedPlayer]: { ...prev[selectedPlayer], imageUrl: photoUrl }
+        }));
+      } else {
+        // Built-in player - use overrides table
+        const updated = {
+          ...(playerOverrides[selectedPlayer] || {}),
+          customImageUrl: photoUrl
+        };
+        
+        const { error } = await db.savePlayerOverride(selectedPlayer, updated);
+        if (error) throw error;
+        
+        setPlayerOverrides(prev => ({
+          ...prev,
+          [selectedPlayer]: updated
+        }));
+      }
+      
+      setImportStatus({ type: 'success', message: '✓ Photo saved to database!' });
+      setSelectedPhotoUrl(photoUrl);
+      setPhotoOptions([]); // Clear options after save
+      
+      // Notify parent to refresh
+      onPlayersUpdated?.();
+      
+    } catch (error) {
+      console.error('Error saving photo:', error);
+      setImportStatus({ type: 'error', message: 'Failed to save: ' + error.message });
     }
   };
 
@@ -290,7 +479,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
           customMap[p.id] = {
             name: p.name,
             fullName: p.full_name,
-            icon: p.icon || '♟️',
+            icon: p.icon || 'Chess',
             born: p.born,
             died: p.died,
             birthPlace: p.birth_place,
@@ -573,7 +762,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
     setNewPlayer({
       name: result.name || result.username,
       fullName: result.name || '',
-      icon: result.title ? '🏆' : '♟️',
+      icon: result.title ? '🏆' : 'Chess',
       born: '',
       died: '',
       birthPlace: '',
@@ -627,7 +816,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         id: playerId,
         name: newPlayer.name.trim(),
         fullName: newPlayer.fullName.trim() || newPlayer.name.trim(),
-        icon: newPlayer.icon || '♟️',
+        icon: newPlayer.icon || 'Chess',
         born: newPlayer.born.trim() || null,
         died: newPlayer.died.trim() || null,
         birthPlace: newPlayer.birthPlace.trim() || null,
@@ -651,7 +840,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         [playerId]: {
           name: newPlayer.name.trim(),
           fullName: newPlayer.fullName.trim() || newPlayer.name.trim(),
-          icon: newPlayer.icon || '♟️',
+          icon: newPlayer.icon || 'Chess',
           born: newPlayer.born.trim(),
           died: newPlayer.died.trim(),
           birthPlace: newPlayer.birthPlace.trim(),
@@ -669,7 +858,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
 
       // Reset form
       setNewPlayer({
-        name: '', fullName: '', icon: '♟️', born: '', died: '', birthPlace: '',
+        name: '', fullName: '', icon: 'Chess', born: '', died: '', birthPlace: '',
         nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: '', imageUrl: ''
       });
       setShowAddPlayerForm(false);
@@ -986,7 +1175,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                 transition: 'all 0.2s'
               }}
             >
-              ♟️ Players
+              Chess Players
             </button>
             <button
               onClick={() => setViewMode('audio')}
@@ -1025,7 +1214,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
         
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {!supabase && (
-            <span style={{ color: colors.error, fontSize: 13 }}>⚠️ Supabase not configured</span>
+            <span style={{ color: colors.error, fontSize: 13 }}>Warning: Supabase not configured</span>
           )}
           <button onClick={onClose} style={styles.closeBtn(colors)}>✕</button>
         </div>
@@ -1576,7 +1765,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     type="text"
                     value={newPlayer.icon}
                     onChange={(e) => setNewPlayer(p => ({ ...p, icon: e.target.value }))}
-                    placeholder="♟️"
+                    placeholder="Chess"
                     style={{ ...styles.input(colors), textAlign: 'center', fontSize: 20 }}
                     maxLength={2}
                   />
@@ -1717,7 +1906,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                   onClick={() => {
                     setShowAddPlayerForm(false);
                     setNewPlayer({
-                      name: '', fullName: '', icon: '♟️', born: '', died: '', birthPlace: '',
+                      name: '', fullName: '', icon: 'Chess', born: '', died: '', birthPlace: '',
                       nationality: '', titles: '', peakRating: '', worldChampion: '', bio: '', playingStyle: '', era: '', imageUrl: ''
                     });
                   }}
@@ -1740,9 +1929,10 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
               {/* Section Tabs */}
               <div style={styles.tabs(colors)}>
                 {[
-                  { id: 'import', label: '📥 Import Games' },
-                  { id: 'profile', label: '👤 Edit Profile' },
-                  { id: 'image', label: '🖼️ Custom Image' }
+                  { id: 'import', label: 'Import Games' },
+                  { id: 'profile', label: 'Edit Profile' },
+                  { id: 'image', label: 'Custom Image' },
+                  { id: 'seed', label: 'Seed to DB' }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -1787,7 +1977,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     maxWidth: 400,
                     border: `1px solid ${colors.border}`
                   }}>
-                    <h3 style={{ margin: '0 0 16px', color: colors.error }}>⚠️ Confirm Delete</h3>
+                    <h3 style={{ margin: '0 0 16px', color: colors.error }}>Warning: Confirm Delete</h3>
                     <p style={{ margin: '0 0 20px', color: colors.text }}>
                       Are you sure you want to delete <strong>{currentPlayer.name}</strong> and all their games? This cannot be undone.
                     </p>
@@ -1901,7 +2091,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                   marginTop: 16
                 }}>
                   {importStatus.type === 'loading' && '⏳ '}
-                  {importStatus.type === 'success' && '✅ '}
+                  {importStatus.type === 'success' && 'OK: '}
                   {importStatus.type === 'error' && '❌ '}
                   {importStatus.message}
                 </div>
@@ -2097,10 +2287,10 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                     </div>
                   )}
                   <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
-                    {!currentPlayer.imageUrl ? '⚠️ No image set' :
-                     playerOverrides[selectedPlayer]?.customImageUrl ? '✅ Custom (Supabase Storage)' : 
-                     customPlayers[selectedPlayer]?.imageUrl ? '✅ Custom Player Image' :
-                     '📷 Wikipedia/Default'}
+                    {!currentPlayer.imageUrl ? 'Warning: No image set' :
+                     playerOverrides[selectedPlayer]?.customImageUrl ? 'OK: Custom (Supabase Storage)' : 
+                     customPlayers[selectedPlayer]?.imageUrl ? 'OK: Custom Player Image' :
+                     ' Wikipedia/Default'}
                   </div>
                   {currentPlayer.imageUrl && (
                     <div style={{ fontSize: 10, opacity: 0.4, marginTop: 4, wordBreak: 'break-all', maxWidth: 150 }}>
@@ -2122,7 +2312,7 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                       onChange={handleImageUpload}
                       style={{ display: 'none' }}
                     />
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>🖼️</div>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}></div>
                     <div style={{ fontWeight: 500, marginBottom: 8 }}>Upload Custom Image</div>
                     <div style={{ fontSize: 13, opacity: 0.7 }}>Stored in Supabase Storage</div>
                   </div>
@@ -2237,8 +2427,133 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                       marginTop: 12
                     }}
                   >
-                    🔄 Fetch Image from Wikipedia
+                    Quick Set (Auto-pick)
                   </button>
+
+                  {/* NEW: Search for Multiple Photo Options */}
+                  <button
+                    onClick={() => fetchPhotoOptions(currentPlayer.name)}
+                    disabled={photoLoading}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      borderRadius: 8,
+                      border: `2px solid ${colors.accent}`,
+                      background: colors.accent,
+                      color: '#fff',
+                      cursor: photoLoading ? 'not-allowed' : 'pointer',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      marginTop: 12
+                    }}
+                  >
+                    {photoLoading ? 'Searching...' : 'Search Wikipedia Photos'}
+                  </button>
+
+                  {/* Photo Options Grid */}
+                  {photoOptions.length > 0 && (
+                    <div style={{
+                      marginTop: 20,
+                      padding: 16,
+                      background: colors.bg,
+                      borderRadius: 12,
+                      border: `1px solid ${colors.border}`
+                    }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: 14, color: colors.text }}>
+                        Select a Photo ({photoOptions.length} options found)
+                      </h4>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                        gap: 12
+                      }}>
+                        {photoOptions.map((option, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => setSelectedPhotoUrl(option.url)}
+                            style={{
+                              cursor: 'pointer',
+                              borderRadius: 8,
+                              overflow: 'hidden',
+                              border: selectedPhotoUrl === option.url 
+                                ? `3px solid ${colors.accent}` 
+                                : `1px solid ${colors.border}`,
+                              transition: 'all 0.2s',
+                              transform: selectedPhotoUrl === option.url ? 'scale(1.05)' : 'scale(1)'
+                            }}
+                          >
+                            <img
+                              src={option.url}
+                              alt={option.label}
+                              style={{
+                                width: '100%',
+                                height: 120,
+                                objectFit: 'cover',
+                                display: 'block'
+                              }}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.target.style.opacity = '0.3';
+                              }}
+                            />
+                            <div style={{
+                              padding: '6px 8px',
+                              fontSize: 10,
+                              color: colors.muted,
+                              background: colors.card,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {option.source}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Save Selected Photo Button */}
+                      {selectedPhotoUrl && (
+                        <button
+                          onClick={() => saveSelectedPhoto(selectedPhotoUrl)}
+                          style={{
+                            width: '100%',
+                            padding: '14px',
+                            marginTop: 16,
+                            borderRadius: 8,
+                            border: 'none',
+                            background: colors.success,
+                            color: '#fff',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            fontWeight: 600
+                          }}
+                        >
+                          ✓ Save Selected Photo to Database
+                        </button>
+                      )}
+                      
+                      {/* Clear Selection */}
+                      <button
+                        onClick={() => {
+                          setPhotoOptions([]);
+                          setSelectedPhotoUrl(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          marginTop: 8,
+                          borderRadius: 8,
+                          border: `1px solid ${colors.border}`,
+                          background: 'transparent',
+                          color: colors.muted,
+                          cursor: 'pointer',
+                          fontSize: 12
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
 
                   {/* Debug button */}
                   <button
@@ -2261,10 +2576,10 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                       color: colors.muted,
                       cursor: 'pointer',
                       fontSize: 11,
-                      marginTop: 8
+                      marginTop: 12
                     }}
                   >
-                    🔍 Debug: Show Current State
+                    Debug: Show Current State
                   </button>
 
                   {playerOverrides[selectedPlayer]?.customImageUrl && (
@@ -2285,11 +2600,98 @@ export default function AdminPanel({ theme, onClose, onPlayersUpdated }) {
                       }}
                       style={styles.revertBtn(colors)}
                     >
-                      ↩️ Revert to Wikipedia Image
+                      Revert to Wikipedia Image
                     </button>
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Seed Section */}
+          {activeSection === 'seed' && (
+            <div style={styles.section(colors)}>
+              <h3 style={styles.sectionTitle(colors)}>
+                Seed Built-in Players to Supabase
+              </h3>
+              
+              <p style={{ fontSize: 14, color: colors.muted, marginBottom: 16, lineHeight: 1.5 }}>
+                This will copy all 9 built-in players (Fischer, Carlsen, Morphy, etc.) to your Supabase database.
+                This ensures all player data and Wikipedia image URLs are stored in Supabase.
+              </p>
+              
+              <div style={{ marginBottom: 16 }}>
+                <strong style={{ color: colors.text }}>Built-in players to seed:</strong>
+                <ul style={{ marginTop: 8, paddingLeft: 20, color: colors.muted }}>
+                  {Object.entries(PLAYERS).map(([id, p]) => (
+                    <li key={id}>{p.name} ({id})</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <button
+                onClick={async () => {
+                  setImportStatus({ type: 'loading', message: 'Seeding players to Supabase...' });
+                  setIsLoading(true);
+                  
+                  try {
+                    const result = await db.seedBuiltInPlayers(PLAYERS);
+                    
+                    if (result.error) {
+                      setImportStatus({ type: 'error', message: result.error.message });
+                    } else {
+                      setImportStatus({ 
+                        type: 'success', 
+                        message: `Seeded ${result.seeded} of ${result.total} players to Supabase!` 
+                      });
+                      
+                      // Reload custom players to show the seeded ones
+                      const { data } = await db.getCustomPlayers();
+                      if (data) {
+                        const playersMap = {};
+                        data.forEach(p => { playersMap[p.id] = p; });
+                        setCustomPlayers(playersMap);
+                      }
+                      
+                      if (onPlayersUpdated) onPlayersUpdated();
+                    }
+                  } catch (e) {
+                    setImportStatus({ type: 'error', message: e.message });
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                disabled={isLoading}
+                style={{
+                  padding: '12px 24px',
+                  background: colors.accent,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: isLoading ? 'wait' : 'pointer',
+                  opacity: isLoading ? 0.7 : 1
+                }}
+              >
+                {isLoading ? 'Seeding...' : 'Seed All Built-in Players'}
+              </button>
+              
+              {importStatus && (
+                <div style={{
+                  marginTop: 16,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: importStatus.type === 'error' ? 'rgba(255,0,0,0.1)' : 
+                              importStatus.type === 'success' ? 'rgba(0,255,0,0.1)' : 
+                              'rgba(255,255,0,0.1)',
+                  color: importStatus.type === 'error' ? '#ff4444' : 
+                         importStatus.type === 'success' ? '#44ff44' : 
+                         colors.text
+                }}>
+                  {importStatus.message}
+                </div>
+              )}
             </div>
           )}
             </>

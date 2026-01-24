@@ -485,5 +485,109 @@ export const db = {
       supabase.from('audio_tracks').update({ sort_order: index }).eq('id', id)
     );
     return Promise.all(updates);
+  },
+
+  // Seed built-in players to Supabase
+  seedBuiltInPlayers: async (players) => {
+    if (!supabase) return { error: { message: 'Supabase not configured' }, seeded: 0 };
+    
+    let seeded = 0;
+    let errors = [];
+    
+    for (const [id, player] of Object.entries(players)) {
+      try {
+        // Check if player already exists
+        const { data: existing } = await supabase
+          .from('custom_players')
+          .select('id')
+          .eq('id', id)
+          .single();
+        
+        if (existing) {
+          // Update existing player
+          const { error } = await supabase.from('custom_players').update({
+            name: player.name,
+            full_name: player.fullName,
+            icon: player.icon || '♟',
+            born: player.born,
+            died: player.died,
+            birth_place: player.birthPlace,
+            nationality: player.nationality,
+            titles: player.titles,
+            peak_rating: player.peakRating,
+            world_champion: player.worldChampion,
+            image_url: player.imageUrl,
+            bio: player.bio,
+            playing_style: player.playingStyle,
+            era: player.era
+          }).eq('id', id);
+          
+          if (!error) seeded++;
+          else errors.push({ id, error: error.message });
+        } else {
+          // Insert new player
+          const { error } = await supabase.from('custom_players').insert({
+            id: id,
+            name: player.name,
+            full_name: player.fullName,
+            icon: player.icon || '♟',
+            born: player.born,
+            died: player.died,
+            birth_place: player.birthPlace,
+            nationality: player.nationality,
+            titles: player.titles,
+            peak_rating: player.peakRating,
+            world_champion: player.worldChampion,
+            image_url: player.imageUrl,
+            bio: player.bio,
+            playing_style: player.playingStyle,
+            era: player.era
+          });
+          
+          if (!error) seeded++;
+          else errors.push({ id, error: error.message });
+        }
+      } catch (e) {
+        errors.push({ id, error: e.message });
+      }
+    }
+    
+    return { seeded, errors, total: Object.keys(players).length };
+  },
+
+  // Get ALL players from Supabase (replaces hardcoded PLAYERS)
+  getAllPlayers: async () => {
+    if (!supabase) return { data: [], error: null };
+    
+    const { data, error } = await supabase
+      .from('custom_players')
+      .select('*')
+      .order('name');
+    
+    // Transform to match PLAYERS format
+    const players = {};
+    if (data) {
+      for (const p of data) {
+        players[p.id] = {
+          id: p.id,
+          name: p.name,
+          fullName: p.full_name,
+          icon: p.icon,
+          born: p.born,
+          died: p.died,
+          birthPlace: p.birth_place,
+          nationality: p.nationality,
+          titles: p.titles || [],
+          peakRating: p.peak_rating,
+          worldChampion: p.world_champion,
+          imageUrl: p.image_url,
+          bio: p.bio,
+          playingStyle: p.playing_style,
+          era: p.era
+        };
+      }
+    }
+    
+    return { data: players, error };
   }
 };

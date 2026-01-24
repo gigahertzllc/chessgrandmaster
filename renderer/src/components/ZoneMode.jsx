@@ -14,7 +14,15 @@ const APP_THEMES = [
   { id: "dark", name: "Dark" },
   { id: "light", name: "Light" },
   { id: "sepia", name: "Sepia" },
-  { id: "midnight", name: "Midnight" }
+  { id: "midnight", name: "Midnight" },
+  { id: "classic-dark", name: "Classic Dark" },
+  { id: "classic-light", name: "Classic Light" },
+  { id: "gallery", name: "Gallery" },
+  { id: "gallery-light", name: "Gallery Light" },
+  { id: "typographic", name: "Typographic" },
+  { id: "typographic-light", name: "Typographic Light" },
+  { id: "editorial", name: "Editorial" },
+  { id: "editorial-light", name: "Editorial Light" }
 ];
 
 // Camera presets for 3D
@@ -43,7 +51,7 @@ export default function ZoneMode({
   };
 
   // Determine if theme is light-based for contrast adjustments
-  const isLightTheme = currentThemeId === "light" || currentThemeId === "sepia";
+  const isLightTheme = currentThemeId?.includes('light') || currentThemeId === "sepia";
 
   const [mode, setMode] = useState(initialLesson ? "lesson" : initialGame ? "game" : "browse");
   const [chess] = useState(() => new Chess());
